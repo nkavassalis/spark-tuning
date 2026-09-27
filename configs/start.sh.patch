@@ -1,8 +1,23 @@
 diff --git a/start.sh b/start.sh
-index 83ddbf9..a4bae80 100755
+index 83ddbf9..11f9110 100755
 --- a/start.sh
 +++ b/start.sh
-@@ -1022,6 +1022,7 @@ docker run \
+@@ -787,6 +787,14 @@ if $DO_LAUNCH; then
+     ok "MXFP8 fallback patch ready: $PATCHED_MODELOPT"
+     HEAD_MODELOPT_MOUNT="-v $PATCHED_MODELOPT:$MODEL_OPT_PKG:ro"
+     WORKER_MODELOPT_MOUNT="-v /tmp/modelopt_patched.py:$MODEL_OPT_PKG:ro"
++    if [[ "$FP8_DENSE" == "true" ]]; then
++        # files/overlay/modelopt.py is modelopt.diff applied ON TOP of modelopt_patched.py
++        # (MXFP8 fallback + FP8_BLOCK_SCALES kept) and is mounted by step 4c. Mounting both
++        # on the same container path is a docker "duplicate mount point" error.
++        HEAD_MODELOPT_MOUNT=""
++        WORKER_MODELOPT_MOUNT=""
++        ok "FP8_DENSE: modelopt.py comes from files/overlay (includes the MXFP8 patch)"
++    fi
+ 
+     # ---------------------------------------------------------------------------
+     # 7. Build vLLM args (shared between head and worker)
+@@ -1022,6 +1030,7 @@ docker run \
      $WORKER_MODELOPT_MOUNT \
      $WORKER_OVERLAY_MOUNTS \
      $OVERLAY_ENV_STR \
@@ -10,7 +25,7 @@ index 83ddbf9..a4bae80 100755
      $WORKER_HF_MOUNT \
      -v $REMOTE_HOME/.cache/vllm:/root/.cache/vllm \
      $IMAGE \
-@@ -1084,6 +1085,7 @@ docker run \
+@@ -1084,6 +1093,7 @@ docker run \
      $HEAD_MODELOPT_MOUNT \
      $HEAD_OVERLAY_MOUNTS \
      $OVERLAY_ENV_STR \

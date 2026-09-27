@@ -41,6 +41,21 @@ Single-stream code decode, before → after (500 tokens, 1 run each — see cave
 applied as a bundle, so the gains are **not individually attributed** — `scripts/mtp_ab.sh` exists to
 isolate the K=2 vs K=3 effect (see [Open items](#open-items)).
 
+### Update: FP8-dense weights — +35% decode, no detectable accuracy loss
+
+We then evaluated the recipe's never-benchmarked `FP8_DENSE` lane. It uses per-channel FP8 for the
+591 BF16 dense linears; the NVFP4 experts are untouched. Full write-up: **[FP8DENSE.md](FP8DENSE.md)**.
+
+| | decode tok/s (mean of 6 cells) | HumanEval+ | MBPP+ | GSM8K | NLL (nats/tok) |
+|---|---|---|---|---|---|
+| A: nvidia BF16-dense (previous prod) | 44.4 | 95.1 | 79.9 | 96.5 | 0.1315 |
+| B: RadixArk BF16-dense (control) | 39.0 | 93.9 | 79.4 | 96.4 | 0.1310 |
+| **C: RadixArk FP8-dense** | **52.5** | 93.3 | 79.9 | 96.4 | 0.1340 |
+
+C vs B, the clean comparison: **+35% decode**, and task scores change by −0.6 / +0.5 / 0.0 points,
+within run-to-run noise. Per-token NLL rises by a small but real +0.003 nats (+2.3%). Two
+upstream bugs had to be fixed to run it at all (see FP8DENSE.md).
+
 ---
 
 ## Speculative decoding (MTP) — the main lever
@@ -111,6 +126,7 @@ override the defaults: `--url` for the Python scripts, `HEAD`/`WORKER`/`API`/`RE
 | `scripts/spec_acceptance.py` | no | snapshot / delta / `--watch` of acceptance counters + draft-length estimate |
 | `scripts/mtp_ab.sh --yes [K...]` | **yes** (~11 min per K) | relaunches with each K, benchmarks, restores the original K and re-checks health; writes `results/mtp_ab-<ts>/` |
 | `scripts/compare_results.py a.json b.json` | no | side-by-side tok/s and % delta |
+| `quality/run_quality.sh <label>` | no | NLL on a fixed corpus + HumanEval+/MBPP+ (sandboxed execution) + GSM8K; ~70 min; run on a node with docker. `quality_eval.py compare-nll` / `compare-pass` for paired comparisons |
 
 Examples:
 
@@ -183,11 +199,10 @@ speed is set almost entirely by **MTP acceptance**, not context length.
 
 ### Rejected for quality reasons
 
-- **`FP8_DENSE=true`** (repo's hybrid checkpoint): analytically ~1.5× batch-1 decode, but it quantizes
-  every dense projection incl. lm_head to FP8 with no accuracy evaluation yet ("GSM8K/AIME
-  re-evaluation is still owed"). The biggest remaining speed lever, but it conflicts with the
-  quality goal until someone evaluates it.
 - **YaRN / 1M context:** not needed; native 262K keeps rope unscaled.
+
+(`FP8_DENSE=true` was originally here pending a quality evaluation. It has now been evaluated:
+see [FP8DENSE.md](FP8DENSE.md).)
 
 ### Not worth it for single-stream decode
 
@@ -204,9 +219,13 @@ speed is set almost entirely by **MTP acceptance**, not context length.
    `128000` context added. ~30 min of downtime. The current evidence for K=2 is per-position acceptance +
    bundled before/after runs, not a controlled A/B.
 2. ~~`index_share_for_mtp_iteration`~~ — tested, no gain, reverted (see above).
-3. `QSA_PROFILE`: benchmark GB10-specific QSA Triton tiles (repo README "QSA launch profiles"); matters
-   more at 64K+ context. Needs the GPU free (server stopped).
-4. Router DHCP reservation for both Sparks.
+3. ~~`FP8_DENSE`~~: evaluated, +35% decode, no detectable task-accuracy change. See [FP8DENSE.md](FP8DENSE.md).
+4. **FP8-dense + reduced draft vocabulary together.** Blocked because both patch `nvidia/mtp.py`.
+   Applying `mtp.diff` on top of `files/mtp_patched.py` (as done for modelopt) should combine them.
+   B→A suggests the draft vocab + FP8 MTP experts are worth ~10% of step rate.
+5. **Quality in thinking mode and at long context** for FP8-dense (see FP8DENSE.md "Not measured").
+6. `QSA_PROFILE`: deprioritised. The step rate is flat from 1K to 128K, so attention isn't the bottleneck.
+7. Router DHCP reservation for both Sparks.
 
 ## Timeline
 
@@ -216,3 +235,5 @@ speed is set almost entirely by **MTP acceptance**, not context length.
 - 2026-09-27 07:31 — head power-cycled; came back on `10.1.13.100` (DHCP); tuned config relaunched via the CX7 link
 - ~07:50 — head pinned back to static `10.1.13.99`; reference benchmark `results/current-K2-2026-09-27.json`
 - ~12:00 — `index_share_for_mtp_iteration` A/B: no gain, reverted
+- 13:00–17:30 — FP8-dense evaluation: RadixArk download + verify, build, configs A/B/C speed + quality
+  (`FP8DENSE.md`, `results/quality/`). Server left running config C (FP8-dense).
