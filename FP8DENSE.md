@@ -111,6 +111,37 @@ xz-compressed per-token log-probs).
 - **Long-context quality** (64K–256K agentic contexts). Speed was measured at 128K; quality wasn't.
 - Sampled decoding (T=0.6) quality. It should track greedy, but wasn't verified.
 
+## Follow-up: FP8-dense + reduced draft vocabulary (config D) — no gain, not adopted
+
+Upstream refuses `FP8_DENSE` together with `MTP_DRAFT_VOCAB`, because both patch `nvidia/mtp.py`.
+Combining them needed two changes (`configs/fp8dense-draftvocab/build_mtp_overlay.py` and the
+`start.sh` hunk in `configs/start.sh.patch`):
+1. Apply `mtp.diff` on top of the draft-vocab `mtp.py`.
+2. Make the draft slice FP8-aware. The slice did `F.linear(h, W[rows])`, which would silently drop
+   the FP8 per-row `weight_scale`. It now dequantizes the 47k rows to BF16 once at load time, which
+   happens before `process_weights_after_loading` transposes the weight.
+
+Same speed benchmark:
+
+| | tok/s (mean) | engine steps/s | acceptance length |
+|---|---|---|---|
+| C FP8-dense | 52.50 | 25.78 | 2.04 |
+| D + 47k draft vocab | 53.17 | 25.78 | 2.06 |
+
+**The step rate didn't change.** The reason is in the load log:
+
+```
+MTP draft vocab: 47149 of 248320 tokens (19.0%), 45734 on this rank of 2; draft lm_head shard 0.30 -> 0.22 GiB
+```
+
+The frequency-ranked draft ids are almost all low token ids, and those sit in **rank 0's** half of
+the vocab-parallel head. Rank 0 barely shrinks: 0.30 GiB of FP8 becomes 0.22 GiB of BF16. The ranks
+synchronise every step, so the step is as slow as rank 0. On the BF16 checkpoint the same vocab
+cuts 0.59 → 0.22 GiB, which is why it helps there (+8% upstream) and not here. Keeping the slice in
+FP8 (≈0.11 GiB, needs a scaled-mm kernel) would save at most ~5%. Not pursued. Production stays on C.
+
+Raw data: `results/fp8dense-D-draftvocab-speed.json`.
+
 ## Bugs hit on the way (upstream `MiaAI-Lab/Qwen3.8-Flash-Next-Dual-DGX-Sparks` @ `d2f54b7`)
 
 1. **`files/overlay/apply_patches.py` is missing.** `FP8_DENSE=true` dies at start.sh Step 4c.

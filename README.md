@@ -220,9 +220,8 @@ see [FP8DENSE.md](FP8DENSE.md).)
    bundled before/after runs, not a controlled A/B.
 2. ~~`index_share_for_mtp_iteration`~~ — tested, no gain, reverted (see above).
 3. ~~`FP8_DENSE`~~: evaluated, +35% decode, no detectable task-accuracy change. See [FP8DENSE.md](FP8DENSE.md).
-4. **FP8-dense + reduced draft vocabulary together.** Blocked because both patch `nvidia/mtp.py`.
-   Applying `mtp.diff` on top of `files/mtp_patched.py` (as done for modelopt) should combine them.
-   B→A suggests the draft vocab + FP8 MTP experts are worth ~10% of step rate.
+4. ~~FP8-dense + reduced draft vocabulary~~: built and measured, no step-rate gain because the draft ids sit
+   almost entirely on rank 0 (see FP8DENSE.md "Follow-up").
 5. **Quality in thinking mode and at long context** for FP8-dense (see FP8DENSE.md "Not measured").
 6. `QSA_PROFILE`: deprioritised. The step rate is flat from 1K to 128K, so attention isn't the bottleneck.
 7. Router DHCP reservation for both Sparks.
@@ -237,3 +236,4 @@ see [FP8DENSE.md](FP8DENSE.md).)
 - ~12:00 — `index_share_for_mtp_iteration` A/B: no gain, reverted
 - 13:00–17:30 — FP8-dense evaluation: RadixArk download + verify, build, configs A/B/C speed + quality
   (`FP8DENSE.md`, `results/quality/`). Server left running config C (FP8-dense).
+- ~19:30 — FP8-dense + draft vocab (config D): no gain; back on C
