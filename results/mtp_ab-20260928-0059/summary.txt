@@ -1,0 +1,9 @@
+     ctx temp task                    K=2                K=3
+   1,000  0.6 code       52.1         a1.98   53.4 ( +2.5%) a2.33
+   1,000  0.6 code_ts    50.3         a1.94   48.5 ( -3.6%) a2.16
+   1,000  0.6 edit       56.5         a2.19   54.4 ( -3.7%) a2.43
+ 128,000  0.6 code       54.1         a2.12   51.1 ( -5.6%) a2.32
+ 128,000  0.6 code_ts    49.5         a1.92   46.6 ( -5.8%) a2.10
+ 128,000  0.6 edit       52.9         a2.07   52.9 ( +0.2%) a2.38
+
+(aX.XX = mean acceptance length: tokens emitted per target forward pass)

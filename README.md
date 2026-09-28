@@ -53,7 +53,8 @@ We then evaluated the recipe's never-benchmarked `FP8_DENSE` lane. It uses per-c
 | **C: RadixArk FP8-dense** | **52.5** | 93.3 | 79.9 | 96.4 | 0.1340 |
 
 C vs B, the clean comparison: **+35% decode**, and task scores change by −0.6 / +0.5 / 0.0 points,
-within run-to-run noise. Per-token NLL rises by a small but real +0.003 nats (+2.3%). Two
+within run-to-run noise. Follow-ups found no detectable change in thinking mode (HumanEval+,
+LiveCodeBench) or at 64K/128K context: pooled over 2,249 paired items, 24 vs 21 flips. Per-token NLL rises by a small but real +0.003 nats (+2.3%). Two
 upstream bugs had to be fixed to run it at all (see FP8DENSE.md).
 
 ---
@@ -215,14 +216,12 @@ see [FP8DENSE.md](FP8DENSE.md).)
 
 ## Open items
 
-1. **Isolate K=2 vs K=3** at the new config: `scripts/mtp_ab.sh --yes 2 3` with `--repeats 3` and
-   `128000` context added. ~30 min of downtime. The current evidence for K=2 is per-position acceptance +
-   bundled before/after runs, not a controlled A/B.
+1. ~~Isolate K=2 vs K=3~~: done on the FP8-dense config. K=2 is 2.7% faster (FP8DENSE.md).
 2. ~~`index_share_for_mtp_iteration`~~ — tested, no gain, reverted (see above).
-3. ~~`FP8_DENSE`~~: evaluated, +35% decode, no detectable task-accuracy change. See [FP8DENSE.md](FP8DENSE.md).
+3. ~~`FP8_DENSE`~~ (**production since 2026-09-27**): evaluated, +35% decode, no detectable task-accuracy change. See [FP8DENSE.md](FP8DENSE.md).
 4. ~~FP8-dense + reduced draft vocabulary~~: built and measured, no step-rate gain because the draft ids sit
    almost entirely on rank 0 (see FP8DENSE.md "Follow-up").
-5. **Quality in thinking mode and at long context** for FP8-dense (see FP8DENSE.md "Not measured").
+5. ~~Quality in thinking mode and at long context~~: done, no detectable change (FP8DENSE.md).
 6. `QSA_PROFILE`: deprioritised. The step rate is flat from 1K to 128K, so attention isn't the bottleneck.
 7. Router DHCP reservation for both Sparks.
 
@@ -237,3 +236,5 @@ see [FP8DENSE.md](FP8DENSE.md).)
 - 13:00–17:30 — FP8-dense evaluation: RadixArk download + verify, build, configs A/B/C speed + quality
   (`FP8DENSE.md`, `results/quality/`). Server left running config C (FP8-dense).
 - ~19:30 — FP8-dense + draft vocab (config D): no gain; back on C
+- 2026-09-27 20:00 → 09-28 01:46 — thinking-mode + long-context quality (B vs C), then the K=2 vs K=3 A/B on C.
+  Production: **C (RadixArk NVFP4 + FP8-dense, MTP K=2)**

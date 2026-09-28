@@ -1,0 +1,7 @@
+  ctx  64000  A1 (retrieve): 24/24
+  ctx  64000  A2 (two-hop): 0/24
+  ctx  64000  A3 (reverse): 24/24
+  ctx 128000  A1 (retrieve): 24/24
+  ctx 128000  A2 (two-hop): 0/24
+  ctx 128000  A3 (reverse): 24/24
+long-context accuracy 96/144 = 66.7%  (mean prompt 102,383 tokens)

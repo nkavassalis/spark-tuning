@@ -11,10 +11,13 @@ evaluated for quality**.
 - **Speed: +35% decode** vs the same checkpoint in BF16 (39.0 → 52.5 tok/s mean, 19.0 → 25.8 engine
   steps/s), MTP acceptance unchanged. **+18% vs the previous production config** (44.4 tok/s).
 - **Quality: no detectable change on any task benchmark.** HumanEval+ −0.6, MBPP+ +0.5,
-  GSM8K ±0.0 points, all well inside the measured run-to-run noise.
+  GSM8K ±0.0 points (thinking off). **Thinking mode**: HumanEval+ ±0.0, LiveCodeBench −2.5 (3 vs 1
+  flips, p=0.63). **Long context (64K/128K)**: −1.4 (2 vs 0 flips, p=0.50), with reasoning length
+  unchanged. Pooled over all 2,249 paired items, B-only vs C-only wins are **24 vs 21** (p=0.77).
 - **A small but real shift in token probabilities:** +0.0030 nats/token NLL (+2.3% relative,
   perplexity 1.1399 → 1.1434) on a fixed 190K-token text. That is ~19× the rerun noise, and 6× the
-  difference between two independently built NVFP4 checkpoints.
+  difference between two independently built NVFP4 checkpoints. It is real but too small to move
+  any task score we could measure.
 
 ## Configs
 
@@ -104,12 +107,10 @@ The NLL result above says the true effect is small and nonzero.
 Raw data: `results/quality/<run>/` (every generation, evalplus per-task results, GSM8K scores,
 xz-compressed per-token log-probs).
 
-### Not measured
+### Not measured in this round
 
-- **Thinking mode.** All evals ran with `enable_thinking: false`. Long reasoning chains may compound
-  small per-token errors more than short answers do.
-- **Long-context quality** (64K–256K agentic contexts). Speed was measured at 128K; quality wasn't.
-- Sampled decoding (T=0.6) quality. It should track greedy, but wasn't verified.
+Thinking mode, long context and sampled decoding were not covered here. They were tested
+afterwards; see "Follow-up: thinking mode and long context" below.
 
 ## Follow-up: FP8-dense + reduced draft vocabulary (config D) — no gain, not adopted
 
@@ -141,6 +142,83 @@ cuts 0.59 → 0.22 GiB, which is why it helps there (+8% upstream) and not here.
 FP8 (≈0.11 GiB, needs a scaled-mm kernel) would save at most ~5%. Not pursued. Production stays on C.
 
 Raw data: `results/fp8dense-D-draftvocab-speed.json`.
+
+## Follow-up: thinking mode and long context (B vs C)
+
+The first round had two gaps: every eval ran with thinking off, and none tested quality at long
+context. `quality/run_deep.sh` + `quality/deep_eval.py` close both. As before, B and C differ
+only in FP8 dense weights.
+
+**Thinking mode.** `enable_thinking: true` at Qwen's recommended sampling (T=0.6, top_p 0.95,
+top_k 20), max 16,384 completion tokens. Every request carries `seed=crc32(task_id)`, so both
+configs draw the same random stream and any divergence comes from the logits.
+- **HumanEval+**, all 164 problems, executed by evalplus.
+- **LiveCodeBench**: 80 stdin-type problems from `code_generation_lite/test6.jsonl` (shuffle seed
+  1234; 16 easy, 18 medium, 46 hard). Up to 30 tests per problem; 10 s per test, 120 s per problem.
+  Run in the `--network none` sandbox.
+
+**Long context.** 48 samples of real Python stdlib source, 24 at ~65K and 24 at ~125K prompt tokens.
+Each sample has 30 planted functions at random depths: 24 near-duplicate `_calib_<word>_<NN>()`
+returning 5-digit constants, and 6 `_derive_<word>_<NN>(x)` that each call one of them. There are
+three questions per sample, answered greedy with thinking off:
+- A1: retrieve one function's constant;
+- A2: two-hop, i.e. which `_calib_` function a `_derive_` function calls and what it returns;
+- A3: reverse lookup, i.e. which function returns a given constant.
+
+The answer keys were verified by executing the planted code.
+
+| Paired test | B BF16 | C FP8 | B-only / C-only | McNemar p |
+|---|---|---|---|---|
+| HumanEval+ (thinking), base / plus | 95.1 / 92.7 | 95.1 / 92.7 | 3 / 3 | 1.00 |
+| LiveCodeBench (thinking) | 43.8 (35/80) | 41.2 (33/80) | 3 / 1 | 0.63 |
+| — by difficulty, easy / medium / hard | 16/16, 12/18, 7/46 | 16/16, 11/18, 6/46 | | |
+| Long context, all 144 questions | 96.5 | 95.1 | 2 / 0 | 0.50 |
+| — retrieve (A1), 64K / 128K | 24/24, 24/24 | 24/24, 24/24 | | |
+| — two-hop (A2), 64K / 128K | 21/24, 22/24 | 20/24, 21/24 | | |
+| — reverse (A3), 64K / 128K | 24/24, 24/24 | 24/24, 24/24 | | |
+
+Reasoning-length signals, which would show degraded reasoning as longer or looping chains:
+
+| | B mean / median tokens | C mean / median tokens | B truncated | C truncated |
+|---|---|---|---|---|
+| HumanEval+ (thinking) | 1,942 / 612 | 1,877 / 662 | 8 (5%) | 7 (4%) |
+| LiveCodeBench (thinking) | 10,990 / 16,384 | 10,929 / 16,384 | 43 (54%) | 45 (56%) |
+
+How to read it:
+- **No detectable degradation** in thinking mode or at 64K–128K context. Reasoning length and
+  truncation are the same.
+- **LiveCodeBench is budget-bound.** Over half the chains on both configs hit the 16K cap before
+  writing code, and nearly every miss is a truncation (B 43, C 45; only 2 wrong answers in each).
+  So the 2-problem gap is "2 more hard problems didn't finish thinking in 16K". It measures
+  solve-within-budget, not unbounded capability. With 4 discordant pairs, the 95% interval on the
+  difference is about ±5 points.
+- Long context: C's two point-estimate losses are both two-hop items, one at each length.
+  Retrieval and reverse lookup are perfect on both.
+- **Pooled over every paired B-vs-C benchmark** in this document (2,249 items: HumanEval+ ×2,
+  MBPP+, GSM8K, LiveCodeBench, long context), B-only vs C-only wins are **24 vs 21**. The sign
+  test gives p = 0.77.
+
+Design note, kept for honesty: the first version of long-context Q2 asked for
+`_derive_x(n) = const*m + n + k`. Both greedy/no-thinking configs got essentially 0% because the
+model does the retrieval and then fumbles 6-digit mental arithmetic. That measured arithmetic,
+not context, so Q2 was changed to pure two-hop retrieval with the contexts byte-identical. v1 is
+kept as `results/quality/C-deep/longctx_v1*` (C only; A1/A3 were 48/48 each).
+
+Raw data: `results/quality/{B,C}-deep/`. The prep is deterministic (`deep_eval.py lcb-prep` /
+`longctx-prep` inside `python:3.12.7-slim`), so the problem/context files aren't committed.
+
+## Follow-up: MTP draft length on the FP8-dense config (K=2 vs K=3)
+
+The FP8 target step is cheaper, so the break-even for a third draft token could have moved.
+`scripts/mtp_ab.sh --yes 2 3` ran the same benchmark as above, relaunching for each K.
+
+| | tok/s (mean) | engine steps/s | acceptance length | last-position acceptance |
+|---|---|---|---|---|
+| **K=2** | **52.55** | 25.80 | 2.04 | 0.40 |
+| K=3 | 51.16 (−2.7%) | 22.36 | 2.29 | 0.25 |
+
+The third draft adds 0.25 tokens per step but costs 13% of the step rate. **K=2 stays.** The K=2 step
+rate reproduces the earlier C measurement (25.78) to within 0.1%. Raw data: `results/mtp_ab-20260928-0059/`.
 
 ## Bugs hit on the way (upstream `MiaAI-Lab/Qwen3.8-Flash-Next-Dual-DGX-Sparks` @ `d2f54b7`)
 
