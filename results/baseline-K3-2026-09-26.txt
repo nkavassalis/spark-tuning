@@ -1,0 +1,22 @@
+# BEFORE tuning. Repo bench/decodebench.py, 500 decode tokens, 1 run per cell, single stream.
+# Config: MTP K=3, control plane on 2.5GbE LAN, no NCCL pinning, default performance mode.
+  context  temp content       ptok   ctok    TTFT s  dec tok/s
+    1,000   0.0 prose        1,076    500      0.84       39.7
+    1,000   0.0 code         1,073    500      0.79       45.1
+    1,000   0.0 entropy      1,077    500      0.98       43.9
+    1,000   0.0 copy         1,089    500      0.80       69.8
+    1,000   0.6 prose        1,076    500      0.85       38.6
+    1,000   0.6 code         1,073    500      0.90       42.5
+    1,000   0.6 entropy      1,077    500      0.80       40.6
+    1,000   0.6 copy         1,089    500      0.86       63.1
+   64,000   0.0 prose       64,076    500     41.11       43.4
+   64,000   0.0 code        64,073    500      4.08       40.5
+   64,000   0.0 entropy     64,077    500      1.91       45.1
+   64,000   0.0 copy        64,089    500      1.92       64.5
+   64,000   0.6 prose       64,076    500      1.90       37.9
+   64,000   0.6 code        64,073    500      1.91       37.6
+   64,000   0.6 entropy     64,077    500      1.92       38.0
+   64,000   0.6 copy        64,089    500      1.91       64.8
+# Server-log SpecDecoding samples on the user's real traffic (K=3) before tuning:
+#   per-position acceptance 0.74/0.50/0.40, 0.66/0.46/0.36, 0.56/0.33/0.19, 0.68/0.50/0.32, 0.76/0.48/0.35
+# During this benchmark: 0.54/0.29/0.12, 0.57/0.30/0.22, 0.68/0.45/0.30

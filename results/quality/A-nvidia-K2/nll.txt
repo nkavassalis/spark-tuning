@@ -1,0 +1,1 @@
+190,191 tokens, mean NLL 0.13146 nats, ppl 1.1405 -> results/A-nvidia-K2/nll.jsonl

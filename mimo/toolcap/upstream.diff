@@ -1,0 +1,6 @@
+42c42,44
+< const HOST = '127.0.0.1' // loopback only; the harness is the only client
+---
+> // spark-tuning change: bind address configurable (upstream hardcodes loopback) so the proxy can run
+> // on the head node in front of vLLM and serve LAN clients. Default unchanged.
+> const HOST = process.env.TOOLCAP_HOST || '127.0.0.1'

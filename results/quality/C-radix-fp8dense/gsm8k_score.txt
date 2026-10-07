@@ -1,0 +1,1 @@
+GSM8K accuracy 1271/1319 = 96.36%  -> results/C-radix-fp8dense/gsm8k_scored.json

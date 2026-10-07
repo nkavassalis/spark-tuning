@@ -1,0 +1,1 @@
+190,191 tokens, mean NLL 0.13397 nats, ppl 1.1434 -> results/C-radix-fp8dense/nll.jsonl

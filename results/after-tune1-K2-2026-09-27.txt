@@ -1,0 +1,19 @@
+# AFTER tuning (first launch). Same script/params as baseline-K3-2026-09-26.txt.
+# Config: MTP K=2, control plane on CX7 (link subnet), NCCL pinning env, --performance-mode interactivity.
+  context  temp content       ptok   ctok    TTFT s  dec tok/s
+    1,000   0.0 prose        1,076    500      1.98       41.6
+    1,000   0.0 code         1,073    500      0.84       46.1
+    1,000   0.0 entropy      1,077    500      0.85       46.6
+    1,000   0.0 copy         1,089    500      0.86       61.5
+    1,000   0.6 prose        1,076    500      0.84       40.7
+    1,000   0.6 code         1,073    500      0.80       43.4
+    1,000   0.6 entropy      1,077    500      0.80       40.8
+    1,000   0.6 copy         1,089    500      0.80       58.0
+   64,000   0.0 prose       64,076    500     41.62       42.8
+   64,000   0.0 code        64,073    500      4.41       44.6
+   64,000   0.0 entropy     64,077    500      2.24       41.4
+   64,000   0.0 copy        64,089    500      2.23       56.5
+   64,000   0.6 prose       64,076    500      2.23       39.0
+   64,000   0.6 code        64,073    500      2.23       48.0
+   64,000   0.6 entropy     64,077    500      2.27       39.7
+   64,000   0.6 copy        64,089    500      2.25       53.6

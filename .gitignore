@@ -1,0 +1,11 @@
+# local, never commit
+.env
+.env.*
+!.env.example
+cluster.env
+mimo/mimo.env
+*.pem
+*.key
+__pycache__/
+*.pyc
+mimo/toolcap/proxy.log

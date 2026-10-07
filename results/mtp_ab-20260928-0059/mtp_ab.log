@@ -1,0 +1,37 @@
+original K=2 ; testing K in: 2 3 ; results -> results/mtp_ab-20260928-0059
+[00:59:14] relaunching with MTP_NUM_SPECULATIVE_TOKENS=2
+[01:11:29] healthy
+     ctx temp task        ptok  TTFT s  tok/s acc.len  per-pos acceptance
+-------------------------------------------------------------------------
+   1,000  0.6 code       1,073    0.51   52.1    1.98  0.59 / 0.39
+   1,000  0.6 code_ts    1,075    0.48   50.3    1.94  0.60 / 0.34
+   1,000  0.6 edit       1,091    0.51   56.5    2.19  0.70 / 0.48
+ 128,000  0.6 code     128,073    2.16   54.1    2.12  0.69 / 0.44
+ 128,000  0.6 code_ts  128,075    1.44   49.5    1.92  0.60 / 0.32
+ 128,000  0.6 edit     131,564    3.47   52.9    2.07  0.63 / 0.44
+
+wrote results/mtp_ab-20260928-0059/K2.json
+[01:16:17] relaunching with MTP_NUM_SPECULATIVE_TOKENS=3
+[01:29:02] healthy
+     ctx temp task        ptok  TTFT s  tok/s acc.len  per-pos acceptance
+-------------------------------------------------------------------------
+   1,000  0.6 code       1,073    0.53   53.4    2.33  0.66 / 0.46 / 0.22
+   1,000  0.6 code_ts    1,075    0.49   48.5    2.16  0.62 / 0.32 / 0.22
+   1,000  0.6 edit       1,091    0.54   54.4    2.43  0.67 / 0.44 / 0.33
+ 128,000  0.6 code     128,073    2.38   51.1    2.32  0.64 / 0.42 / 0.26
+ 128,000  0.6 code_ts  128,075    1.62   46.6    2.10  0.58 / 0.33 / 0.19
+ 128,000  0.6 edit     131,564    3.72   52.9    2.38  0.66 / 0.44 / 0.28
+
+wrote results/mtp_ab-20260928-0059/K3.json
+     ctx temp task                    K=2                K=3
+   1,000  0.6 code       52.1         a1.98   53.4 ( +2.5%) a2.33
+   1,000  0.6 code_ts    50.3         a1.94   48.5 ( -3.6%) a2.16
+   1,000  0.6 edit       56.5         a2.19   54.4 ( -3.7%) a2.43
+ 128,000  0.6 code       54.1         a2.12   51.1 ( -5.6%) a2.32
+ 128,000  0.6 code_ts    49.5         a1.92   46.6 ( -5.8%) a2.10
+ 128,000  0.6 edit       52.9         a2.07   52.9 ( +0.2%) a2.38
+
+(aX.XX = mean acceptance length: tokens emitted per target forward pass)
+[01:33:53] restoring original K=2
+[01:33:53] relaunching with MTP_NUM_SPECULATIVE_TOKENS=2
+[01:46:19] healthy
