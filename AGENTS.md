@@ -83,6 +83,9 @@ nothing else uses the server.
 The user's agent is pi. It always streams and only sends `temperature` if configured, so both MiMo storm
 mitigations apply. The local pi config (outside this repo) has a `qwen` provider at `<head>:8000/v1` and a `mimo`
 provider at `<head>:8000/mimo/v1`; only the one matching the model currently served works.
+Qwen thinks by default, which costs it speed (see `QWEN_VS_MIMO.md`: 66–70 tok/s with thinking off vs 48–56 with it
+on). If decode speed matters more than reasoning in pi, turn reasoning off — Qwen with thinking on still beat MiMo
+with thinking off in every cell measured.
 
 ## Conventions
 - Every number in the docs is measured, with the result file next to it. Label anything unmeasured as unmeasured.
