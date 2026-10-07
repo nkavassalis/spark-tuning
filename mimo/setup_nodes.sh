@@ -34,4 +34,10 @@ echo "== worker: rsync weights from head over $IFACE"
 on "$WORKER" "mkdir -p models/MiMo-V2.6-Flash-RL"
 on "$HEAD" "rsync -a --info=progress2 --no-inc-recursive models/MiMo-V2.6-Flash-RL/ $worker_ip:models/MiMo-V2.6-Flash-RL/ --exclude .cache" | tr '\r' '\n' | tail -1
 on "$WORKER" "cd $MIMO_RECIPE && SKIP_DOWNLOAD=1 bash setup.sh 2>&1 | tee ~/mimo-setup.log | grep -E '^==|ok|done|rror'"
+# setup.sh installs the audio libs with `docker run` as root, so $CACHE/pyextra (and the model-dir
+# metadata the loader writes) end up root-owned and a plain `rm -rf ~/mimo-cache` fails. Take it back
+# so cleanup later needs no root (learned the hard way on 2026-10-07 while cleaning up).
+for n in "$HEAD" "$WORKER"; do
+  on "$n" "docker run --rm --privileged -v \$HOME:/h --entrypoint sh $IMAGE -c 'chown -R \$(id -u):\$(id -g) /h/$CACHE_NAME /h/$MIMO_RECIPE'"
+done
 echo "setup done. Next: mimo/up.sh"

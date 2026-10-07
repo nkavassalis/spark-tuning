@@ -7,10 +7,11 @@ fp8 attention + MXFP4 experts) served with vLLM TP=2 across both Sparks with the
 pinned at commit `9c699a2`. The recipe's image, four patches and serving defaults are used **unchanged**.
 This page covers what we added around it, what we measured, and the agent caveats.
 
-**Status (2026-10-07, end of day):** set up, tested and benchmarked; **not currently serving**. The cluster went
-back to Qwen config C after the head-to-head ([QWEN_VS_MIMO.md](QWEN_VS_MIMO.md)). `mimo/up.sh` switches to
-MiMo again (~14 min). While MiMo is up, agents use `http://<head>:8000/mimo/v1` (the tool-call-cap proxy); the raw
-vLLM endpoint is `http://<head>:8888/v1`. Model id `mimo-v2.6-flash`, `max_model_len` 300000.
+**Status (2026-10-07):** set up, tested, benchmarked, then **removed from both nodes**. Qwen config C serves the
+cluster; MiMo is kept only as this documentation plus the scripts and results here. To run it again for future
+model investigation: `mimo/setup_nodes.sh` (re-downloads 178 GB weights, ~25 min, then rsyncs to the worker in
+~6 min) and `mimo/up.sh` (~14 min to serving). Agents then use `http://<head>:8000/mimo/v1` (the tool-call-cap
+proxy); the raw endpoint is `http://<head>:8888/v1`; model id `mimo-v2.6-flash`.
 
 ---
 
@@ -144,6 +145,18 @@ A wider single-run grid (T=0 and 0.6, 1K and 64K, including prose) is in
 64K T=0 code 31.5 / edit 46.7 / prose 17.5.
 
 ---
+
+## What is on the nodes / how it was removed
+
+Removed on 2026-10-07 (`rm -rf` of each node's `models/MiMo-V2.6-Flash-RL`, `mimo-cache`, `mimo-recipe`,
+`mimo-toolcap`, `mimo-bench`, `mimo-*.log`, the `hf` venv, plus `docker rmi` of the recipe image and `node:22-alpine`;
+disk on the head back to its pre-MiMo 360 GB free). Nothing MiMo-specific is left on either Spark. Before deleting,
+every MiMo result file on the nodes was checked byte-identical against this repo (bench JSONs, all 20 quality
+files), so nothing unique was lost.
+
+Gotcha hit during cleanup: the recipe's audio-lib step runs `docker run` as root, so `mimo-cache/pyextra` was
+root-owned and `rm -rf` failed. Fixed with a privileged container chown; `mimo/setup_nodes.sh` now chowns
+`mimo-cache` and the recipe checkout back to the user at the end of setup, so future cleanup is a plain `rm -rf`.
 
 ## Not done / open items
 

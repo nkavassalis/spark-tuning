@@ -6,8 +6,8 @@ Project mode: REAL
 Public notes, scripts and measured results from tuning LLM serving on a 2-node DGX Spark (GB10) cluster
 (vLLM TP=2 over the CX7 200G link). The cluster serves one model at a time:
 - Qwen3.8-Flash-Next (NVFP4 + FP8-dense, MTP K=2): `QWEN.md`, `FP8DENSE.md`. Tuned, currently stopped.
-- MiMo-V2.6-Flash-RL (DFlash 7): `MIMO.md`. Set up and benchmarked 2026-10-07, not serving.
-- Head-to-head: `QWEN_VS_MIMO.md`. **Current state: Qwen config C serving on :8000** (switch with `mimo/up.sh` / `mimo/down.sh --qwen`).
+- MiMo-V2.6-Flash-RL (DFlash 7): `MIMO.md`. Set up, benchmarked, then **removed from both nodes** on 2026-10-07.
+- Head-to-head: `QWEN_VS_MIMO.md`. **Current state: Qwen config C serving on :8000.** MiMo is not installed; `mimo/setup_nodes.sh && mimo/up.sh` rebuilds it (~30 min, 178 GB download).
 Goal for both: fast, high-quality single-user code generation for coding agents, with no change that
 alters output quality unless it is measured.
 
@@ -48,7 +48,7 @@ tell the user. Fixing it means scrubbing plus a history rewrite, and rotating an
 ## How to run
 ```bash
 cp cluster.env.example cluster.env   # fill in (never commit)
-mimo/setup_nodes.sh                  # idempotent; ~178 GB weights
+mimo/setup_nodes.sh                  # idempotent; ~178 GB weights (MiMo is currently NOT installed on the nodes)
 mimo/up.sh                           # stops Qwen, starts MiMo (~13.5 min) + proxy
 mimo/down.sh --qwen                  # back to Qwen
 ```
@@ -82,7 +82,7 @@ nothing else uses the server.
 ## Client (pi)
 The user's agent is pi. It always streams and only sends `temperature` if configured, so both MiMo storm
 mitigations apply. The local pi config (outside this repo) has a `qwen` provider at `<head>:8000/v1` and a `mimo`
-provider at `<head>:8000/mimo/v1`; only the one matching the model currently served works.
+provider at `<head>:8000/mimo/v1`; only the one matching the model currently served works (the `mimo` entry is inert while MiMo is not provisioned).
 Qwen thinks by default, which costs it speed (see `QWEN_VS_MIMO.md`: 66–70 tok/s with thinking off vs 48–56 with it
 on). If decode speed matters more than reasoning in pi, turn reasoning off — Qwen with thinking on still beat MiMo
 with thinking off in every cell measured.
@@ -104,7 +104,8 @@ with thinking off in every cell measured.
 - Storm guard verified only with a synthetic 12-parallel-call request, not a real long agent session.
 - MiMo image/video/audio input, needle-in-a-haystack, 300K-context requests: not exercised here.
 - No real pi agent session benchmark (task success / wall-clock) for either model.
-- `mimo/up.sh` and `mimo/down.sh --qwen` were both exercised end to end on 2026-10-07.
+- `mimo/up.sh`, `mimo/down.sh --qwen` and removing MiMo from the nodes were all exercised end to end on 2026-10-07.
+- The cleanup chown step at the end of `mimo/setup_nodes.sh` has not been run (added during cleanup); verify it on the next provision.
 
 ## Do-not-touch (ask the user first)
 - Don't enable torch.compile / compilation modes or raise GMU above the recipe's 0.90. A memory overcommit hung
