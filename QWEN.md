@@ -1,9 +1,8 @@
 # Qwen3.8-Flash-Next on the dual DGX Spark cluster
 
-> **Status 2026-10-07:** not currently serving. The cluster was switched to MiMo-V2.6-Flash ([MIMO.md](MIMO.md)).
-> The deployment below is intact on disk. Restore it with `mimo/down.sh --qwen`. That relaunch will also pick up
-> the staged, **not yet validated** `.env` change (MAX_NUM_SEQS 16, GMU 0.86) described under Configuration, so
-> check memory on both nodes after it boots.
+> **Status 2026-10-07:** serving config C (GMU 0.835, MAX_NUM_SEQS 8) again, after a day on MiMo-V2.6-Flash
+> ([MIMO.md](MIMO.md)). Head-to-head: [QWEN_VS_MIMO.md](QWEN_VS_MIMO.md); Qwen won on speed and on quality.
+> The staged 2026-10-04 change below was dropped, never used. Switch models with `mimo/up.sh` / `mimo/down.sh --qwen`.
 
 Tuning notes, scripts and results for a dual **DGX Spark** (GB10) cluster serving
 `nvidia/Qwen3.8-Flash-Next-NVFP4` with vLLM (TP=2 + EP, MTP speculative decoding), deployed with
@@ -151,12 +150,12 @@ Deployment repo: a checkout of `Qwen3.8-Flash-Next-Dual-DGX-Sparks` on the head.
 on the head (cold start ≈ 11 min; the first request after launch is slow while FlashInfer autotunes).
 
 - `configs/env.diff` — `.env` changes (original backed up on the head as `.env.bak-20260926-2124`; HF token redacted here)
-- **Pending (applied to `.env` 2026-10-04, NOT yet live — takes effect on next restart):**
+- **Dropped 2026-10-07 (never went live):** the head `.env` is back to the tested config C
+  (copy kept as `.env.staged-20261004-unused`). What had been staged:
   `MAX_NUM_SEQS` 8→16 (KV pool admits 17.06× full-context sessions; the scheduler cap was the limit),
   `GPU_MEMORY_UTILIZATION` 0.835→0.86 (+~3 GiB KV ≈ +350K tokens; pool was 4,471,258 tok / 17.06× at FP8-dense).
-  On next launch check the boot log (`Free memory on device`) and `free --giga` on **both** nodes — revert
+  If it's ever tried: check the boot log (`Free memory on device`) and `free --giga` on **both** nodes, and revert
   GMU to 0.835 if OS-available dips below ~4 GiB on the head (unified memory; see torch.compile incident).
-  Backup: `.env.bak-20261004-prefix`.
 - `configs/start.sh.patch` — the `EXTRA_DOCKER_ARGS` fix
 - `configs/running-vllm-args.txt` — the exact `vllm serve` command line now running
 
@@ -247,6 +246,6 @@ see [FP8DENSE.md](FP8DENSE.md).)
 - ~19:30 — FP8-dense + draft vocab (config D): no gain; back on C
 - 2026-09-27 20:00 → 09-28 01:46 — thinking-mode + long-context quality (B vs C), then the K=2 vs K=3 A/B on C.
   Production: **C (RadixArk NVFP4 + FP8-dense, MTP K=2)**
-- 2026-10-04 — `.env` staged: MAX_NUM_SEQS 16, GMU 0.86 (pending restart). Confirmed client restarts do **not**
+- 2026-10-04 — `.env` staged: MAX_NUM_SEQS 16, GMU 0.86 (dropped 2026-10-07 before ever going live). Confirmed client restarts do **not**
   evict the server KV pool (container up since 09-28, prefix-cache hit rate 95%, utilization ~6%); the slow
   first question after a client restart is a prefill miss on a rebuilt prompt prefix, not eviction.

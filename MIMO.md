@@ -7,9 +7,10 @@ fp8 attention + MXFP4 experts) served with vLLM TP=2 across both Sparks with the
 pinned at commit `9c699a2`. The recipe's image, four patches and serving defaults are used **unchanged**.
 This page covers what we added around it, what we measured, and the agent caveats.
 
-**Status (2026-10-07):** serving. Agents use `http://<head>:8000/mimo/v1` (tool-call-cap proxy); the raw
+**Status (2026-10-07, end of day):** set up, tested and benchmarked; **not currently serving**. The cluster went
+back to Qwen config C after the head-to-head ([QWEN_VS_MIMO.md](QWEN_VS_MIMO.md)). `mimo/up.sh` switches to
+MiMo again (~14 min). While MiMo is up, agents use `http://<head>:8000/mimo/v1` (the tool-call-cap proxy); the raw
 vLLM endpoint is `http://<head>:8888/v1`. Model id `mimo-v2.6-flash`, `max_model_len` 300000.
-The Qwen deployment is stopped but intact; `mimo/down.sh --qwen` brings it back.
 
 ---
 
@@ -22,11 +23,14 @@ The Qwen deployment is stopped but intact; `mimo/down.sh --qwen` brings it back.
 | Recipe bench C1 / C6 aggregate | **42.8 / 139.6 tok/s** (recipe: 45.6 / 155.8). C1 code 67.6, math 68.2, prose 20.4 |
 | Cold prefill 2K / 64K | 2,292 / 1,271 tok/s (recipe: 1,947 / 1,209) |
 | Functional checks | chat, tool-call parsing, storm guard: all pass (`mimo/test_mimo.py`) |
-| vs our tuned Qwen (config C) on our single-user code bench | **6–30% slower at 1K, 41–50% slower at 128K** (see below) |
+| Quality (thinking off, greedy) | HumanEval+ 88.4, MBPP+ 74.3, GSM8K 96.4 (Qwen C: 93.3 / 79.9 / 96.4) |
+| Quality (thinking) | HumanEval+ 89.0, LiveCodeBench 46.2 (Qwen C: 92.7 / 41.2); long context 90.3% (Qwen 95.1%) |
+| vs Qwen config C, single-user code, both thinking off | Qwen is 1.3–1.8× faster at 1K and 2.2–2.7× faster at 128K |
 
-On this cluster, for single-user coding, MiMo is slower than the tuned Qwen deployment, and the gap grows
-with context. Where MiMo is ahead: multimodal input (image/video/audio), concurrency (6.8× 300K vs Qwen's
-budget) and a 300K window. Quality vs Qwen was **not** evaluated (see "Not done").
+On this cluster MiMo is slower than the tuned Qwen deployment on everything we measured except 2K prefill. It is no
+better on quality: worse on MBPP+ (significant), tied or not significantly different elsewhere. Full
+head-to-head: **[QWEN_VS_MIMO.md](QWEN_VS_MIMO.md)**. MiMo's advantages are multimodal input (image/video/audio) and
+the 300K window.
 
 ---
 
@@ -116,8 +120,10 @@ math 5.07, json 3.57, reasoning 2.12, summary 1.08, prose 0.84, narrative 0.76. 
 
 ### Our single-user code bench vs the tuned Qwen (`scripts/bench_decode.py`, 500 decode tokens)
 
-Same script, tasks and contexts as the Qwen FP8-dense evaluation, T=0.6, median of 3
-(`results/mimo/bench_decode-vsqwenC-2026-10-07.json` vs `results/fp8dense-C-fp8dense-speed.json`):
+First comparison, against Qwen's 2026-09-27 numbers. Those Qwen runs used the template default (thinking on),
+which makes Qwen slower. The same-day thinking-off comparison is in [QWEN_VS_MIMO.md](QWEN_VS_MIMO.md) and shows a
+larger gap. T=0.6, median of 3 (`results/mimo/bench_decode-vsqwenC-2026-10-07.json` vs
+`results/fp8dense-C-fp8dense-speed.json`):
 
 | ctx | task | Qwen C tok/s (acc.len) | MiMo tok/s (acc.len) | Δ |
 |---|---|---|---|---|
@@ -141,9 +147,9 @@ A wider single-run grid (T=0 and 0.6, 1K and 64K, including prose) is in
 
 ## Not done / open items
 
-- **Quality**: no HumanEval+/MBPP+/GSM8K/NLL run on MiMo yet. `quality/run_quality.sh` should work with
-  `API=http://<head>:8888` and the model id changed, but it hasn't been tried. Without it, MiMo vs Qwen is a
-  speed comparison only.
+- ~~Quality~~: done 2026-10-07, see [QWEN_VS_MIMO.md](QWEN_VS_MIMO.md). Run with
+  `API=http://<head-link-ip>:8888 MODEL=mimo-v2.6-flash quality/run_quality.sh <label>` and, for thinking mode,
+  `THINK_TEMP=1.0 THINK_TOP_P=0.95 THINK_TOP_K= quality/run_deep.sh <label>` (on the worker).
 - **Real agent sessions**: the storm guard has only been checked with a synthetic 12-call request. We haven't
   measured how often it trips in a real long session with our agent.
 - Multimodal paths (image/video/audio), needle-in-a-haystack, and 300K-context requests: the recipe verified them

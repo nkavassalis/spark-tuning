@@ -1,0 +1,408 @@
+{
+ "per_task": {
+  "lcb/abc388_g": false,
+  "lcb/abc389_e": false,
+  "lcb/abc390_b": true,
+  "lcb/abc391_g": false,
+  "lcb/abc395_c": true,
+  "lcb/arc191_c": false,
+  "lcb/abc396_g": true,
+  "lcb/abc393_a": true,
+  "lcb/abc397_g": false,
+  "lcb/abc390_e": false,
+  "lcb/abc400_a": true,
+  "lcb/abc397_b": true,
+  "lcb/abc394_d": false,
+  "lcb/abc394_c": true,
+  "lcb/arc195_d": false,
+  "lcb/arc192_d": false,
+  "lcb/abc389_f": false,
+  "lcb/abc399_a": true,
+  "lcb/arc194_e": false,
+  "lcb/abc390_g": false,
+  "lcb/abc391_e": true,
+  "lcb/abc400_g": false,
+  "lcb/abc395_b": true,
+  "lcb/abc395_a": true,
+  "lcb/abc394_f": false,
+  "lcb/abc395_e": true,
+  "lcb/abc399_e": false,
+  "lcb/abc393_d": true,
+  "lcb/arc192_b": false,
+  "lcb/abc396_f": true,
+  "lcb/abc398_a": true,
+  "lcb/abc391_a": true,
+  "lcb/arc192_a": false,
+  "lcb/abc391_b": true,
+  "lcb/arc190_d": false,
+  "lcb/abc393_b": true,
+  "lcb/abc398_b": true,
+  "lcb/abc388_c": true,
+  "lcb/abc390_f": false,
+  "lcb/abc399_f": true,
+  "lcb/abc396_c": true,
+  "lcb/abc389_a": true,
+  "lcb/abc392_c": true,
+  "lcb/abc394_e": false,
+  "lcb/abc395_f": false,
+  "lcb/arc195_c": false,
+  "lcb/abc393_f": true,
+  "lcb/abc396_e": false,
+  "lcb/arc193_b": false,
+  "lcb/arc194_a": false,
+  "lcb/abc391_d": false,
+  "lcb/abc397_d": true,
+  "lcb/arc193_d": false,
+  "lcb/abc398_f": true,
+  "lcb/abc388_f": false,
+  "lcb/abc390_d": false,
+  "lcb/arc196_b": false,
+  "lcb/arc195_b": false,
+  "lcb/abc392_b": true,
+  "lcb/abc400_e": false,
+  "lcb/abc394_b": true,
+  "lcb/abc392_d": false,
+  "lcb/arc196_a": false,
+  "lcb/abc396_d": true,
+  "lcb/abc391_f": false,
+  "lcb/abc400_d": false,
+  "lcb/abc398_g": false,
+  "lcb/arc196_d": false,
+  "lcb/arc191_a": false,
+  "lcb/abc393_e": true,
+  "lcb/abc399_c": true,
+  "lcb/abc398_c": true,
+  "lcb/abc392_f": false,
+  "lcb/abc388_b": true,
+  "lcb/abc397_a": true,
+  "lcb/arc190_a": false,
+  "lcb/arc192_e": false,
+  "lcb/arc194_d": false,
+  "lcb/abc398_d": true,
+  "lcb/abc388_a": true
+ },
+ "detail": {
+  "lcb/abc388_g": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/abc389_e": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/abc390_b": {
+   "pass": true,
+   "why": "pass"
+  },
+  "lcb/abc391_g": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/abc395_c": {
+   "pass": true,
+   "why": "pass"
+  },
+  "lcb/arc191_c": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/abc396_g": {
+   "pass": true,
+   "why": "pass"
+  },
+  "lcb/abc393_a": {
+   "pass": true,
+   "why": "pass"
+  },
+  "lcb/abc397_g": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/abc390_e": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/abc400_a": {
+   "pass": true,
+   "why": "pass"
+  },
+  "lcb/abc397_b": {
+   "pass": true,
+   "why": "pass"
+  },
+  "lcb/abc394_d": {
+   "pass": false,
+   "why": "wrong answer on test 0"
+  },
+  "lcb/abc394_c": {
+   "pass": true,
+   "why": "pass"
+  },
+  "lcb/arc195_d": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/arc192_d": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/abc389_f": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/abc399_a": {
+   "pass": true,
+   "why": "pass"
+  },
+  "lcb/arc194_e": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/abc390_g": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/abc391_e": {
+   "pass": true,
+   "why": "pass"
+  },
+  "lcb/abc400_g": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/abc395_b": {
+   "pass": true,
+   "why": "pass"
+  },
+  "lcb/abc395_a": {
+   "pass": true,
+   "why": "pass"
+  },
+  "lcb/abc394_f": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/abc395_e": {
+   "pass": true,
+   "why": "pass"
+  },
+  "lcb/abc399_e": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/abc393_d": {
+   "pass": true,
+   "why": "pass"
+  },
+  "lcb/arc192_b": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/abc396_f": {
+   "pass": true,
+   "why": "pass"
+  },
+  "lcb/abc398_a": {
+   "pass": true,
+   "why": "pass"
+  },
+  "lcb/abc391_a": {
+   "pass": true,
+   "why": "pass"
+  },
+  "lcb/arc192_a": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/abc391_b": {
+   "pass": true,
+   "why": "pass"
+  },
+  "lcb/arc190_d": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/abc393_b": {
+   "pass": true,
+   "why": "pass"
+  },
+  "lcb/abc398_b": {
+   "pass": true,
+   "why": "pass"
+  },
+  "lcb/abc388_c": {
+   "pass": true,
+   "why": "pass"
+  },
+  "lcb/abc390_f": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/abc399_f": {
+   "pass": true,
+   "why": "pass"
+  },
+  "lcb/abc396_c": {
+   "pass": true,
+   "why": "pass"
+  },
+  "lcb/abc389_a": {
+   "pass": true,
+   "why": "pass"
+  },
+  "lcb/abc392_c": {
+   "pass": true,
+   "why": "pass"
+  },
+  "lcb/abc394_e": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/abc395_f": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/arc195_c": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/abc393_f": {
+   "pass": true,
+   "why": "pass"
+  },
+  "lcb/abc396_e": {
+   "pass": false,
+   "why": "wrong answer on test 4"
+  },
+  "lcb/arc193_b": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/arc194_a": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/abc391_d": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/abc397_d": {
+   "pass": true,
+   "why": "pass"
+  },
+  "lcb/arc193_d": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/abc398_f": {
+   "pass": true,
+   "why": "pass"
+  },
+  "lcb/abc388_f": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/abc390_d": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/arc196_b": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/arc195_b": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/abc392_b": {
+   "pass": true,
+   "why": "pass"
+  },
+  "lcb/abc400_e": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/abc394_b": {
+   "pass": true,
+   "why": "pass"
+  },
+  "lcb/abc392_d": {
+   "pass": false,
+   "why": "wrong answer on test 0"
+  },
+  "lcb/arc196_a": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/abc396_d": {
+   "pass": true,
+   "why": "pass"
+  },
+  "lcb/abc391_f": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/abc400_d": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/abc398_g": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/arc196_d": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/arc191_a": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/abc393_e": {
+   "pass": true,
+   "why": "pass"
+  },
+  "lcb/abc399_c": {
+   "pass": true,
+   "why": "pass"
+  },
+  "lcb/abc398_c": {
+   "pass": true,
+   "why": "pass"
+  },
+  "lcb/abc392_f": {
+   "pass": false,
+   "why": "runtime error on test 16"
+  },
+  "lcb/abc388_b": {
+   "pass": true,
+   "why": "pass"
+  },
+  "lcb/abc397_a": {
+   "pass": true,
+   "why": "pass"
+  },
+  "lcb/arc190_a": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/arc192_e": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/arc194_d": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/abc398_d": {
+   "pass": true,
+   "why": "pass"
+  },
+  "lcb/abc388_a": {
+   "pass": true,
+   "why": "pass"
+  }
+ },
+ "accuracy": 0.4625,
+ "n": 80
+}

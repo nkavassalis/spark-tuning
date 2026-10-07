@@ -1,0 +1,1 @@
+178,256 tokens, mean NLL 0.45967 nats, ppl 1.5836 -> results/M-mimo-tp2/nll.jsonl

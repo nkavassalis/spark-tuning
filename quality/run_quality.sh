@@ -14,7 +14,7 @@ docker image inspect $IMG >/dev/null 2>&1 || docker build -q -t $IMG -f Dockerfi
 [[ -s data/gsm8k_test.jsonl ]] || curl -sfL -o data/gsm8k_test.jsonl \
   https://raw.githubusercontent.com/openai/grade-school-math/master/grade_school_math/data/test.jsonl
 RUN_NET=(docker run --rm --network host -u "$(id -u):$(id -g)" -e HOME=/tmp -e XDG_CACHE_HOME=/cache
-         -e API="$API" -e CONCURRENCY="${CONCURRENCY:-8}" -e GSM8K=/data/gsm8k_test.jsonl
+         -e API="$API" -e MODEL="${MODEL:-qwen3.8-flash-next}" -e CONCURRENCY="${CONCURRENCY:-8}" -e GSM8K=/data/gsm8k_test.jsonl
          -v "$W":/work -v "$W/cache":/cache -v "$W/data":/data $IMG)
 RUN_SANDBOX=(docker run --rm --network none --memory 6g --pids-limit 512 --cpus 8 -u "$(id -u):$(id -g)"
          -e HOME=/tmp -e XDG_CACHE_HOME=/cache -v "$W/cache":/cache -v "$OUT":/out $IMG)

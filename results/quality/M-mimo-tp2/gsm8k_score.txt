@@ -1,0 +1,1 @@
+GSM8K accuracy 1272/1319 = 96.44%  -> results/M-mimo-tp2/gsm8k_scored.json

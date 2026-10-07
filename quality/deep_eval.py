@@ -57,10 +57,17 @@ HE_PROMPT = ("Please provide a self-contained Python script that solves the foll
              "in a markdown code block:\n```\n{prompt}\n```\n")
 
 
+# Thinking-mode sampling: each model at its own recommended settings. Defaults are Qwen's
+# (0.6 / 0.95 / 20); for MiMo use THINK_TEMP=1.0 THINK_TOP_P=0.95 THINK_TOP_K= (checkpoint defaults).
+THINK_SAMPLING = {k: float(v) if k != "top_k" else int(v) for k, v in (
+    ("temperature", os.environ.get("THINK_TEMP", "0.6")), ("top_p", os.environ.get("THINK_TOP_P", "0.95")),
+    ("top_k", os.environ.get("THINK_TOP_K", "20"))) if v != ""}
+
+
 def think_chat(task_id, content, max_tokens):
     r = post("/v1/chat/completions", {
         "model": MODEL, "messages": [{"role": "user", "content": content}],
-        "temperature": 0.6, "top_p": 0.95, "top_k": 20, "max_tokens": max_tokens,
+        **THINK_SAMPLING, "max_tokens": max_tokens,
         "seed": zlib.crc32(task_id.encode()),
         "chat_template_kwargs": {"enable_thinking": True}})
     c = r["choices"][0]; m = c["message"]

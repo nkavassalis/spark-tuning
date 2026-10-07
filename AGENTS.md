@@ -6,7 +6,8 @@ Project mode: REAL
 Public notes, scripts and measured results from tuning LLM serving on a 2-node DGX Spark (GB10) cluster
 (vLLM TP=2 over the CX7 200G link). The cluster serves one model at a time:
 - Qwen3.8-Flash-Next (NVFP4 + FP8-dense, MTP K=2): `QWEN.md`, `FP8DENSE.md`. Tuned, currently stopped.
-- MiMo-V2.6-Flash-RL (DFlash 7): `MIMO.md`. Serving since 2026-10-07.
+- MiMo-V2.6-Flash-RL (DFlash 7): `MIMO.md`. Set up and benchmarked 2026-10-07, not serving.
+- Head-to-head: `QWEN_VS_MIMO.md`. **Current state: Qwen config C serving on :8000** (switch with `mimo/up.sh` / `mimo/down.sh --qwen`).
 Goal for both: fast, high-quality single-user code generation for coding agents, with no change that
 alters output quality unless it is measured.
 
@@ -31,6 +32,7 @@ tell the user. Fixing it means scrubbing plus a history rewrite, and rotating an
 | `README.md` | human entry point: index, setup, switching models, tests |
 | `QWEN.md`, `FP8DENSE.md` | Qwen tuning write-up (MTP K, NCCL/control plane, FP8-dense eval, failures, timeline) |
 | `MIMO.md` | MiMo setup, **tool-call storm mitigations and caveats**, measurements, open items |
+| `QWEN_VS_MIMO.md` | same-cluster comparison; Qwen quality numbers reused from 2026-09-27/28 runs, not rerun (user's call) |
 | `cluster.env.example` | template for the untracked `cluster.env` (HEAD, WORKER, API, REPO, MIMO_RECIPE) |
 | `scripts/` | Qwen-era benchmark tools; `bench_decode.py` works for any model (`--model`, `--url`) |
 | `quality/` | quality-eval harness (runs on a node with docker; `API` env required) |
@@ -77,6 +79,11 @@ nothing else uses the server.
 - Server sampling defaults (temp 1.0, top_p 0.95, rep-pen 1.05) are a storm mitigation. **Don't lower temperature
   "for code"**: 0.6 makes tool-call storms worse (recipe measurement).
 
+## Client (pi)
+The user's agent is pi. It always streams and only sends `temperature` if configured, so both MiMo storm
+mitigations apply. The local pi config (outside this repo) has a `qwen` provider at `<head>:8000/v1` and a `mimo`
+provider at `<head>:8000/mimo/v1`; only the one matching the model currently served works.
+
 ## Conventions
 - Every number in the docs is measured, with the result file next to it. Label anything unmeasured as unmeasured.
 - Shell: `set -euo pipefail`, source `mimo/lib.sh`, use `on "$HEAD" ...`. Python: stdlib only.
@@ -84,17 +91,17 @@ nothing else uses the server.
 
 ## Known issues / TODOs
 - The proxy caps **streamed** responses only. Non-streaming requests can still storm.
-- MiMo is 6–50% slower than tuned Qwen for single-user code; the gap grows with context (step rate falls 10.6→7.1/s from 1K to 128K).
-- MiMo quality never evaluated (no HumanEval+/MBPP+/NLL). Qwen vs MiMo is speed-only so far.
-- Qwen `.env` has a staged, unvalidated change (MAX_NUM_SEQS 16, GMU 0.86) that applies on the next Qwen launch.
+- MiMo is 1.3–2.7× slower than Qwen config C for single-user code (both thinking off); the gap grows with context (MiMo step rate falls 10.6→7.1/s from 1K to 128K, Qwen flat ~25/s).
+- MiMo quality: one run per test, so there's no noise floor for MiMo. Qwen's quality numbers are reused from 09-27/28.
+- `quality_eval.py nll` per-token NLL is only comparable within one tokenizer; use `bpb` across models.
+- `scripts/bench_decode.py --thinking {default,on,off}`: Qwen's template default is thinking ON, MiMo's server default OFF. Set it explicitly for cross-model comparisons.
 - The recipe bench came in 6–15% under the recipe's published aggregate (single run).
 
 ## Testing limitations / unverified
 - Storm guard verified only with a synthetic 12-parallel-call request, not a real long agent session.
 - MiMo image/video/audio input, needle-in-a-haystack, 300K-context requests: not exercised here.
-- `mimo/down.sh --qwen` (the Qwen relaunch path) has not been run end to end yet. The individual commands
-  (`./stop.sh`, `./start.sh --launch`) are the Qwen repo's own, used many times before.
-- `quality/` scripts against MiMo: not tried.
+- No real pi agent session benchmark (task success / wall-clock) for either model.
+- `mimo/up.sh` and `mimo/down.sh --qwen` were both exercised end to end on 2026-10-07.
 
 ## Do-not-touch (ask the user first)
 - Don't enable torch.compile / compilation modes or raise GMU above the recipe's 0.90. A memory overcommit hung

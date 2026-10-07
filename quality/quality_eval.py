@@ -105,7 +105,24 @@ def cmd_nll(a):
     print(f"{n:,} tokens, mean NLL {-s / n:.5f} nats, ppl {math.exp(-s / n):.4f} -> {a.out}")
 
 
+def cmd_bpb(a):
+    """Bits per byte of the corpus: tokenizer-independent, so it compares DIFFERENT models (per-token NLL
+    does not). Sum of token NLLs (tokens 2..n of each chunk) / UTF-8 bytes of the chunk text. The first
+    token of each chunk has no logprob but its bytes are counted: a ~1e-4 bias, the same for all models.
+    Files may be .jsonl or .jsonl.xz."""
+    text = {d["source"]: d["text"] for d in map(json.loads, open(a.corpus))}
+    print(f"{'file':<40} {'chunks':>6} {'tokens':>8} {'bytes':>9} {'bytes/tok':>9} {'bits/byte':>9}")
+    for f in a.files:
+        nll = load_nll(f); s = 0.0; n = 0; b = 0
+        for src, toks in nll.items():
+            s += -sum(t["lp"] for t in toks); n += len(toks); b += len(text[src].encode())
+        print(f"{f[-40:]:<40} {len(nll):>6} {n:>8,} {b:>9,} {b / n:>9.3f} {s / math.log(2) / b:>9.5f}")
+
+
 def load_nll(p):
+    if p.endswith(".xz"):
+        import lzma
+        return {r["source"]: r["tokens"] for r in map(json.loads, lzma.open(p, "rt"))}
     return {r["source"]: r["tokens"] for r in map(json.loads, open(p))}
 
 
@@ -232,10 +249,11 @@ def main():
     s.add_argument("--out", required=True); s.add_argument("--limit", type=int)
     s = sp.add_parser("gsm8k-score"); s.add_argument("file")
     s = sp.add_parser("compare-nll"); s.add_argument("files", nargs="+")
+    s = sp.add_parser("bpb"); s.add_argument("--corpus", required=True); s.add_argument("files", nargs="+")
     s = sp.add_parser("compare-pass"); s.add_argument("files", nargs="+")
     a = ap.parse_args()
     {"corpus": cmd_corpus, "nll": cmd_nll, "gen": cmd_gen, "gsm8k-score": cmd_gsm8k_score,
-     "compare-nll": cmd_compare_nll, "compare-pass": cmd_compare_pass}[a.cmd](a)
+     "compare-nll": cmd_compare_nll, "compare-pass": cmd_compare_pass, "bpb": cmd_bpb}[a.cmd](a)
 
 
 if __name__ == "__main__":

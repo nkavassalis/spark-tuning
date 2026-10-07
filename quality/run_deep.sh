@@ -8,7 +8,8 @@ API="${API:?set API=http://<head>:8000}"
 IMG=spark-quality:evalplus-0.3.1
 cd "$W"
 RUN_NET=(docker run --rm --network host -u "$(id -u):$(id -g)" -e HOME=/tmp -e XDG_CACHE_HOME=/cache
-         -e API="$API" -e CONCURRENCY="${CONCURRENCY:-8}" -e LONGCTX_CONC="${LONGCTX_CONC:-4}"
+         -e API="$API" -e MODEL="${MODEL:-qwen3.8-flash-next}" -e CONCURRENCY="${CONCURRENCY:-8}" -e LONGCTX_CONC="${LONGCTX_CONC:-4}"
+         -e THINK_TEMP="${THINK_TEMP-0.6}" -e THINK_TOP_P="${THINK_TOP_P-0.95}" -e THINK_TOP_K="${THINK_TOP_K-20}"
          -v "$W":/work -v "$W/cache":/cache -v "$W/data":/data $IMG)
 RUN_SANDBOX=(docker run --rm --network none --memory 6g --pids-limit 512 --cpus 8 -u "$(id -u):$(id -g)"
          -e HOME=/tmp -e XDG_CACHE_HOME=/cache -v "$W":/work:ro -v "$W/cache":/cache -v "$W/data":/data -v "$OUT":/out $IMG)
