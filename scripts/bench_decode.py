@@ -92,7 +92,7 @@ def build_ctx(kind, tokens):
     return "".join(FILLER.format(i=i) for i in range(max(1, int(tokens / 25))))
 
 
-def run(base, model, ctx, task, n, temp, thinking=None):
+def run(base, model, ctx, task, n, temp, thinking=None, chat_kwargs=None):
     payload = {"model": model,
                "messages": [{"role": "user", "content": ctx + "\n\n" + TASKS[task]}],
                "max_tokens": n, "min_tokens": n, "ignore_eos": True,
@@ -100,6 +100,8 @@ def run(base, model, ctx, task, n, temp, thinking=None):
                "stream_options": {"include_usage": True}}
     if thinking is not None:                 # None = server/template default
         payload["chat_template_kwargs"] = {"enable_thinking": thinking}
+    if chat_kwargs:                          # e.g. GLM-5.3 {"reasoning_effort": "low"}
+        payload.setdefault("chat_template_kwargs", {}).update(chat_kwargs)
     req = urllib.request.Request(base + "/v1/chat/completions",
                                  data=json.dumps(payload).encode(),
                                  headers={"Content-Type": "application/json"})
@@ -135,12 +137,14 @@ def main():
     ap.add_argument("--label", default="", help="free-form tag stored in --json output")
     ap.add_argument("--thinking", choices=["default", "on", "off"], default="default",
                     help="send chat_template_kwargs.enable_thinking (default: don't send, server default applies)")
+    ap.add_argument("--chat-kwargs", type=json.loads, default=None,
+                    help='extra chat_template_kwargs as JSON, e.g. \'{"reasoning_effort":"low"}\' (GLM-5.3 always thinks)')
     ap.add_argument("--json", help="write results to this file")
     a = ap.parse_args()
 
     # warm-up (first request after launch triggers FlashInfer autotune)
     think = {"default": None, "on": True, "off": False}[a.thinking]
-    run(a.url, a.model, "", "code", 32, 0.0, think)
+    run(a.url, a.model, "", "code", 32, 0.0, think, a.chat_kwargs)
 
     rows = []
     hdr = f"{'ctx':>8} {'temp':>4} {'task':<8} {'ptok':>7} {'TTFT s':>7} {'tok/s':>6} {'acc.len':>7}  per-pos acceptance"
@@ -152,7 +156,7 @@ def main():
                 decs, ttfts, accs = [], [], []
                 for _ in range(a.repeats):
                     m0 = scrape(a.url)
-                    ptok, ctok, ttft, dec = run(a.url, a.model, ctx, task, a.decode, t, think)
+                    ptok, ctok, ttft, dec = run(a.url, a.model, ctx, task, a.decode, t, think, a.chat_kwargs)
                     acc = accept_delta(m0, scrape(a.url))
                     decs.append(dec); ttfts.append(ttft); accs.append(acc)
                 dec = statistics.median(decs)
@@ -166,7 +170,7 @@ def main():
                              "ttft_s": statistics.median(ttfts), "acceptance": acc})
     if a.json:
         with open(a.json, "w") as f:
-            json.dump({"label": a.label, "thinking": a.thinking, "url": a.url, "time": time.strftime("%F %T"),
+            json.dump({"label": a.label, "thinking": a.thinking, "chat_kwargs": a.chat_kwargs, "url": a.url, "time": time.strftime("%F %T"),
                        "decode_tokens": a.decode, "repeats": a.repeats, "rows": rows}, f, indent=1)
         print(f"\nwrote {a.json}")
 

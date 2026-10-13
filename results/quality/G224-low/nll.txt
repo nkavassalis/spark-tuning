@@ -1,0 +1,1 @@
+176,964 tokens, mean NLL 0.42605 nats, ppl 1.5312 -> results/G224-low/nll.jsonl

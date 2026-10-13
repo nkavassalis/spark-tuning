@@ -1,0 +1,1 @@
+GSM8K accuracy 1270/1319 = 96.29%  -> results/G192-low/gsm8k_scored.json

@@ -11,6 +11,9 @@ the server. Each model runs its tested deployment:
 | KV pool (boot log 2026-10-07) | 4.25M tokens (16.2× full 262K) | 2.05M tokens (6.8× full 300K) |
 | Server sampling defaults | vLLM defaults; thinking on by template default | temperature 1.0 / top_p 0.95 / rep-pen 1.05; thinking off |
 
+> **2026-10-13:** GLM-5.3-Flash (autotrust E192/E224) was measured with the same benchmarks and harness; three-way tables
+> are in [GLM.md](GLM.md).
+
 ## Summary
 
 | | Qwen C | MiMo | Winner |

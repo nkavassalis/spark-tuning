@@ -20,6 +20,11 @@ import argparse, concurrent.futures as cf, glob, json, math, os, re, sys, time, 
 URL = os.environ.get("API", "http://localhost:8000")
 MODEL = os.environ.get("MODEL", "qwen3.8-flash-next")
 CONC = int(os.environ.get("CONCURRENCY", "8"))
+# Request fields that turn thinking off. Default is Qwen/MiMo's template switch. A model that can't turn
+# thinking off (GLM-5.3: always thinks) gets its lowest effort instead, e.g.
+#   NOTHINK_KWARGS='{"chat_template_kwargs":{"reasoning_effort":"low"}}' NOTHINK_MAX_TOKENS=8192
+NOTHINK_KWARGS = json.loads(os.environ.get("NOTHINK_KWARGS") or '{"chat_template_kwargs":{"enable_thinking":false}}')
+NOTHINK_MAX_TOKENS = int(os.environ.get("NOTHINK_MAX_TOKENS") or 0)   # 0 = per-task default below
 
 
 def post(path, payload, timeout=1800, retries=3):
@@ -37,8 +42,7 @@ def post(path, payload, timeout=1800, retries=3):
 def chat(content, max_tokens):
     r = post("/v1/chat/completions", {
         "model": MODEL, "messages": [{"role": "user", "content": content}],
-        "temperature": 0.0, "max_tokens": max_tokens,
-        "chat_template_kwargs": {"enable_thinking": False}})
+        "temperature": 0.0, "max_tokens": max_tokens, **NOTHINK_KWARGS})
     m = r["choices"][0]["message"]
     return (m.get("content") or ""), r["choices"][0].get("finish_reason"), r["usage"]["completion_tokens"]
 
@@ -170,7 +174,7 @@ def cmd_gen(a):
         done = {r["task_id"]: r for r in map(json.loads, open(a.out))}
     todo = [t for t in tasks if t["task_id"] not in done]
     print(f"{a.task}: {len(tasks)} tasks, {len(todo)} to do, concurrency {CONC}", file=sys.stderr)
-    max_tokens = 1024 if a.task == "gsm8k" else 1536
+    max_tokens = NOTHINK_MAX_TOKENS or (1024 if a.task == "gsm8k" else 1536)
 
     def work(t):
         raw, fin, ntok = chat(t["prompt"], max_tokens)

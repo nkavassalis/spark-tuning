@@ -63,13 +63,19 @@ THINK_SAMPLING = {k: float(v) if k != "top_k" else int(v) for k, v in (
     ("temperature", os.environ.get("THINK_TEMP", "0.6")), ("top_p", os.environ.get("THINK_TOP_P", "0.95")),
     ("top_k", os.environ.get("THINK_TOP_K", "20"))) if v != ""}
 
+# Request fields that turn thinking on / off (defaults: Qwen/MiMo template switch). For GLM-5.3, which always
+# thinks: THINK_KWARGS='{"chat_template_kwargs":{"reasoning_effort":"high"}}' and
+# NOTHINK_KWARGS='{"chat_template_kwargs":{"reasoning_effort":"low"}}' NOTHINK_MAX_TOKENS=4096.
+THINK_KWARGS = json.loads(os.environ.get("THINK_KWARGS") or '{"chat_template_kwargs":{"enable_thinking":true}}')
+NOTHINK_KWARGS = json.loads(os.environ.get("NOTHINK_KWARGS") or '{"chat_template_kwargs":{"enable_thinking":false}}')
+NOTHINK_MAX_TOKENS = int(os.environ.get("NOTHINK_MAX_TOKENS") or 0)
+
 
 def think_chat(task_id, content, max_tokens):
     r = post("/v1/chat/completions", {
         "model": MODEL, "messages": [{"role": "user", "content": content}],
         **THINK_SAMPLING, "max_tokens": max_tokens,
-        "seed": zlib.crc32(task_id.encode()),
-        "chat_template_kwargs": {"enable_thinking": True}})
+        "seed": zlib.crc32(task_id.encode()), **THINK_KWARGS})
     c = r["choices"][0]; m = c["message"]
     return {"task_id": task_id, "content": m.get("content") or "",
             "reasoning_chars": len(m.get("reasoning_content") or m.get("reasoning") or ""),
@@ -239,7 +245,7 @@ def cmd_gen_longctx(a):
     def fn(t):
         r = post("/v1/chat/completions", {
             "model": MODEL, "messages": [{"role": "user", "content": t["context"] + "\n\n" + t["question"]}],
-            "temperature": 0.0, "max_tokens": 96, "chat_template_kwargs": {"enable_thinking": False}})
+            "temperature": 0.0, "max_tokens": NOTHINK_MAX_TOKENS or 96, **NOTHINK_KWARGS})
         text = r["choices"][0]["message"]["content"] or ""
         got = {k: (re.search(rf"{k}:\s*`?([A-Za-z0-9_\-]+)", text) or [None, ""])[1] for k in ("A1", "A2", "A3")}
         ok = {k: got[k].strip("`() ") == v for k, v in t["answers"].items()}

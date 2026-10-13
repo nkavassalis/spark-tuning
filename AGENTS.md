@@ -5,10 +5,14 @@ Project mode: REAL
 ## Purpose
 Public notes, scripts and measured results from tuning LLM serving on a 2-node DGX Spark (GB10) cluster
 (vLLM TP=2 over the CX7 200G link). The cluster serves one model at a time:
-- Qwen3.8-Flash-Next (NVFP4 + FP8-dense, MTP K=2): `QWEN.md`, `FP8DENSE.md`. Tuned, currently stopped.
+- Qwen3.8-Flash-Next (NVFP4 + FP8-dense, MTP K=2): `QWEN.md`, `FP8DENSE.md`. Tuned; the production model.
 - MiMo-V2.6-Flash-RL (DFlash 7): `MIMO.md`. Set up, benchmarked, then **removed from both nodes** on 2026-10-07.
-- Head-to-head: `QWEN_VS_MIMO.md`. **Current state: Qwen config C serving on :8000.** MiMo is not installed; `mimo/setup_nodes.sh && mimo/up.sh` rebuilds it (~30 min, 178 GB download).
-Goal for both: fast, high-quality single-user code generation for coding agents, with no change that
+- GLM-5.3-Flash, autotrust NAS-pruned NVFP4 builds E192 / E224 (NVFP4 MTP K=2): `GLM.md`. Benchmarked 2026-10-13:
+  ties or beats Qwen C on every task benchmark (not on corpus NLL), 2–3× slower decode (~11.5 vs ~25.5 engine steps/s). E224 is the better GLM
+  (same speed, 100% long context). Both checkpoints are still on both nodes (`GLM_VARIANT=E224 glm/up.sh`, ~10 min).
+- Head-to-head: `QWEN_VS_MIMO.md` (and the three-way tables in `GLM.md`). **Current state: Qwen config C serving on :8000.**
+  MiMo is not installed; `mimo/setup_nodes.sh && mimo/up.sh` rebuilds it (~30 min, 178 GB download).
+Goal for all: fast, high-quality single-user code generation for coding agents, with no change that
 alters output quality unless it is measured.
 
 ## THE PUBLIC RULE (read first)
@@ -33,6 +37,7 @@ tell the user. Fixing it means scrubbing plus a history rewrite, and rotating an
 | `QWEN.md`, `FP8DENSE.md` | Qwen tuning write-up (MTP K, NCCL/control plane, FP8-dense eval, failures, timeline) |
 | `MIMO.md` | MiMo setup, **tool-call storm mitigations and caveats**, measurements, open items |
 | `QWEN_VS_MIMO.md` | same-cluster comparison; Qwen quality numbers reused from 2026-09-27/28 runs, not rerun (user's call) |
+| `GLM.md` | GLM-5.3-Flash E192/E224: setup, `reasoning_effort` semantics, speed + quality vs Qwen C and MiMo |
 | `cluster.env.example` | template for the untracked `cluster.env` (HEAD, WORKER, API, REPO, MIMO_RECIPE) |
 | `scripts/` | Qwen-era benchmark tools; `bench_decode.py` works for any model (`--model`, `--url`) |
 | `quality/` | quality-eval harness (runs on a node with docker; `API` env required) |
@@ -43,6 +48,10 @@ tell the user. Fixing it means scrubbing plus a history rewrite, and rotating an
 | `mimo/mimo.env.example` | template rendered onto nodes as `<recipe>/launch/mimo.env` (placeholders filled on the nodes) |
 | `mimo/toolcap/` | tool-call-cap proxy (upstream copy + `upstream.diff`), its node tests, `routes.json` |
 | `mimo/test_mimo.py` | functional checks against the live MiMo deployment |
+| `glm/lib.sh` | shared vars for GLM: `GLM_VARIANT` (E192/E224), image `vllm/vllm-openai:v0.31.0`, paths, `on`, `drop_caches` |
+| `glm/setup_nodes.sh` | head download, MTP config flip (`num_nextn_predict_layers` 1), rsync to worker, image pull, patch script copy |
+| `glm/up.sh` / `glm/down.sh [--qwen]` | switch cluster to GLM (writes `~/glm-cache/serve.sh` per node, container `vllm_glm`) / stop it |
+| `glm/patch_vllm.py` | idempotent in-container patch of vLLM 0.31.0 so the standalone `mtp-nvfp4/` draft loads |
 | `results/` | raw outputs; `results/mimo/` for MiMo |
 
 ## How to run
@@ -52,7 +61,9 @@ mimo/setup_nodes.sh                  # idempotent; ~178 GB weights (MiMo is curr
 mimo/up.sh                           # stops Qwen, starts MiMo (~13.5 min) + proxy
 mimo/down.sh --qwen                  # back to Qwen
 ```
-Endpoints: agents `http://<head>:8000/mimo/v1` (proxy); raw vLLM `http://<head>:8888/v1`; model `mimo-v2.6-flash`.
+GLM: `GLM_VARIANT=E192 glm/up.sh` (or E224), `glm/down.sh --qwen`; API `http://<head>:8000/v1`, model `glm53-flash-e192`.
+GLM always thinks: send `chat_template_kwargs.reasoning_effort` = `low` (no reasoning) or `high`; **omitted = `max`**.
+Endpoints (MiMo): agents `http://<head>:8000/mimo/v1` (proxy); raw vLLM `http://<head>:8888/v1`; model `mimo-v2.6-flash`.
 On the nodes: recipe checkout `~/mimo-recipe`, weights `~/models/MiMo-V2.6-Flash-RL`, cache `~/mimo-cache`,
 proxy files and log `~/mimo-toolcap/` (container `mimo-toolcap`), vLLM container `vllm_mimo`.
 
@@ -60,8 +71,8 @@ proxy files and log `~/mimo-toolcap/` (container `mimo-toolcap`), vLLM container
 ```bash
 node --test mimo/toolcap/*.test.cjs                    # 13 proxy unit tests, offline
 set -a; . ./cluster.env; set +a; mimo/test_mimo.py     # live: chat, tool-call parse, storm guard
-bash -n mimo/*.sh scripts/*.sh quality/*.sh            # syntax
-python3 -m py_compile scripts/*.py quality/*.py mimo/*.py
+bash -n mimo/*.sh glm/*.sh scripts/*.sh quality/*.sh    # syntax
+python3 -m py_compile scripts/*.py quality/*.py mimo/*.py glm/*.py
 ```
 Benchmarks (`scripts/bench_decode.py`, recipe `bench/mimobench.py` run on the head) are only valid when
 nothing else uses the server.
@@ -97,13 +108,18 @@ with thinking off in every cell measured.
 - MiMo is 1.3–2.7× slower than Qwen config C for single-user code (both thinking off); the gap grows with context (MiMo step rate falls 10.6→7.1/s from 1K to 128K, Qwen flat ~25/s).
 - MiMo quality: one run per test, so there's no noise floor for MiMo. Qwen's quality numbers are reused from 09-27/28.
 - `quality_eval.py nll` per-token NLL is only comparable within one tokenizer; use `bpb` across models.
+- GLM: `scripts/bench_decode.py --chat-kwargs '{"reasoning_effort":"low"}'`; quality harness `NOTHINK_KWARGS` / `THINK_KWARGS` /
+  `NOTHINK_MAX_TOKENS` (defaults reproduce the Qwen/MiMo requests). GLM decode runs show an unexplained slow mode
+  (~7.5 vs ~11.5 engine steps/s) in some effort-low runs; see GLM.md.
 - `scripts/bench_decode.py --thinking {default,on,off}`: Qwen's template default is thinking ON, MiMo's server default OFF. Set it explicitly for cross-model comparisons.
 - The recipe bench came in 6–15% under the recipe's published aggregate (single run).
 
 ## Testing limitations / unverified
 - Storm guard verified only with a synthetic 12-parallel-call request, not a real long agent session.
 - MiMo image/video/audio input, needle-in-a-haystack, 300K-context requests: not exercised here.
-- No real pi agent session benchmark (task success / wall-clock) for either model.
+- No real pi agent session benchmark (task success / wall-clock) for any model.
+- GLM: thinking-mode tests ran at `reasoning_effort=high`, not `max` (pi's default); GLM tool calling only smoke-tested;
+  GLM vision input, 1M context and `max_num_seqs` > 8 not exercised.
 - `mimo/up.sh`, `mimo/down.sh --qwen` and removing MiMo from the nodes were all exercised end to end on 2026-10-07.
 - The cleanup chown step at the end of `mimo/setup_nodes.sh` has not been run (added during cleanup); verify it on the next provision.
 
