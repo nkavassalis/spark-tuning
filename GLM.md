@@ -6,9 +6,11 @@ kept per layer (pruned by neural architecture search), NVFP4 experts, 18B active
 full 154,880-token vocabulary, and a bundled NVFP4 MTP draft (`mtp-nvfp4/`). E224 keeps 224 experts (141 GiB). We served both
 with stock vLLM 0.31.0 at TP=2 over the CX7 link, with MTP K=2. Revisions tested: E192 `ef3f9cf`, E224 `45d2363`.
 
-**Status (2026-10-13):** evaluated overnight, then the cluster went back to Qwen config C. Both checkpoints are still on
-both nodes (`~/models/GLM5.3-Flash-E{192,224}-DGX-Spark`, 139 + 158 GB each), so `GLM_VARIANT=E192 glm/up.sh` brings
-GLM back in ~10 min without a download.
+**Status (2026-10-13):** evaluated overnight, then the cluster went back to Qwen config C and GLM was **removed from both
+nodes** (both checkpoints, the vLLM 0.31.0 image, `~/glm-cache`). To run it again: `GLM_VARIANT=E224 glm/setup_nodes.sh`
+(158 GB download + rsync to the worker, ~45 min) then `GLM_VARIANT=E224 glm/up.sh` (~10 min). Use `E192` for the smaller build.
+Removal note: the container writes root-owned files into `~/glm-cache`, so delete it with a privileged container
+(`docker run --rm --privileged -v $HOME:/h --entrypoint sh <image> -c 'rm -rf /h/glm-cache'`), then `~/models/GLM5.3-Flash-*`.
 
 ## Summary (E192)
 
@@ -263,7 +265,7 @@ LiveCodeBench.
 ## How to run it again
 
 ```bash
-GLM_VARIANT=E192 glm/setup_nodes.sh   # idempotent; skips the download if the checkpoint is complete
+GLM_VARIANT=E192 glm/setup_nodes.sh   # idempotent; downloads (139 GB) and rsyncs to the worker if missing
 GLM_VARIANT=E192 glm/up.sh            # stops Qwen, ~10 min to ready; API http://<head>:8000/v1, model glm53-flash-e192
 glm/down.sh --qwen                    # back to Qwen config C (~11 min)
 ```

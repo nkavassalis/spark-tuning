@@ -9,7 +9,7 @@ Public notes, scripts and measured results from tuning LLM serving on a 2-node D
 - MiMo-V2.6-Flash-RL (DFlash 7): `MIMO.md`. Set up, benchmarked, then **removed from both nodes** on 2026-10-07.
 - GLM-5.3-Flash, autotrust NAS-pruned NVFP4 builds E192 / E224 (NVFP4 MTP K=2): `GLM.md`. Benchmarked 2026-10-13:
   ties or beats Qwen C on every task benchmark (not on corpus NLL), 2–3× slower decode (~11.5 vs ~25.5 engine steps/s). E224 is the better GLM
-  (same speed, 100% long context). Both checkpoints are still on both nodes (`GLM_VARIANT=E224 glm/up.sh`, ~10 min).
+  (same speed, 100% long context). **Removed from both nodes** on 2026-10-13 (checkpoints, image, caches); `GLM_VARIANT=E224 glm/setup_nodes.sh && GLM_VARIANT=E224 glm/up.sh` rebuilds it (158 GB download).
 - Head-to-head: `QWEN_VS_MIMO.md` (and the three-way tables in `GLM.md`). **Current state: Qwen config C serving on :8000.**
   MiMo is not installed; `mimo/setup_nodes.sh && mimo/up.sh` rebuilds it (~30 min, 178 GB download).
 Goal for all: fast, high-quality single-user code generation for coding agents, with no change that

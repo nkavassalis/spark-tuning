@@ -10,7 +10,7 @@ The cluster runs one model at a time. Each model has its own write-up:
 |---|---|---|---|
 | `nvidia/Qwen3.8-Flash-Next-NVFP4` (+ RadixArk FP8-dense), MTP K=2 | [MiaAI-Lab/Qwen3.8-Flash-Next-Dual-DGX-Sparks](https://github.com/MiaAI-Lab/Qwen3.8-Flash-Next-Dual-DGX-Sparks) | [QWEN.md](QWEN.md), [FP8DENSE.md](FP8DENSE.md) | **serving** (config C) |
 | `XiaomiMiMo/MiMo-V2.6-Flash-RL`, DFlash 7 | [tonyd2wild/MiMo-V2.6-Flash-DGX-Spark-Recipe](https://github.com/tonyd2wild/MiMo-V2.6-Flash-DGX-Spark-Recipe) | [MIMO.md](MIMO.md) | benchmarked, **removed from the nodes**; `mimo/setup_nodes.sh && mimo/up.sh` to bring it back |
-| `autotrust/GLM5.3-Flash-E192-DGX-Spark` (+ E224), NVFP4 MTP K=2 | stock vLLM 0.31.0 + `glm/` (after autotrust's [E224 two-Spark runbook](https://huggingface.co/autotrust/GLM5.3-Flash-E224-DGX-Spark/blob/main/DEPLOY-2X-DGX-SPARK.md)) | [GLM.md](GLM.md) | benchmarked 2026-10-13, checkpoints still on the nodes; `GLM_VARIANT=E192 glm/up.sh` |
+| `autotrust/GLM5.3-Flash-E192-DGX-Spark` (+ E224), NVFP4 MTP K=2 | stock vLLM 0.31.0 + `glm/` (after autotrust's [E224 two-Spark runbook](https://huggingface.co/autotrust/GLM5.3-Flash-E224-DGX-Spark/blob/main/DEPLOY-2X-DGX-SPARK.md)) | [GLM.md](GLM.md) | benchmarked 2026-10-13, **removed from the nodes**; `glm/setup_nodes.sh && glm/up.sh` to bring it back |
 
 Head-to-head speed and quality on this cluster: **[QWEN_VS_MIMO.md](QWEN_VS_MIMO.md)**. Short version: for
 single-user coding Qwen config C is 1.3–2.7× faster and at least as accurate. MiMo is ahead only on multimodal input
@@ -47,7 +47,7 @@ Node 18+ only if you want to run the proxy unit tests locally. The nodes need Do
 mimo/setup_nodes.sh      # (re)provision: recipe checkout, ~178 GB weights on both nodes, patches. Does not stop Qwen.
 mimo/up.sh               # stop Qwen, start MiMo + tool-call-cap proxy (~11-15 min)
 mimo/down.sh --qwen      # stop MiMo, relaunch Qwen (~11 min)
-GLM_VARIANT=E192 glm/up.sh   # stop Qwen, start GLM-5.3-Flash E192 (~10 min); glm/down.sh --qwen to go back
+GLM_VARIANT=E224 glm/setup_nodes.sh && GLM_VARIANT=E224 glm/up.sh   # GLM-5.3-Flash (not installed now); glm/down.sh --qwen to go back
 
 MiMo is **not installed** on the nodes right now (removed 2026-10-07); `setup_nodes.sh` rebuilds it from scratch.
 ```
