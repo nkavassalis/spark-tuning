@@ -37,6 +37,7 @@ tell the user. Fixing it means scrubbing plus a history rewrite, and rotating an
 | `QWEN.md`, `FP8DENSE.md` | Qwen tuning write-up (MTP K, NCCL/control plane, FP8-dense eval, failures, timeline) |
 | `MIMO.md` | MiMo setup, **tool-call storm mitigations and caveats**, measurements, open items |
 | `QWEN_VS_MIMO.md` | same-cluster comparison; Qwen quality numbers reused from 2026-09-27/28 runs, not rerun (user's call) |
+| `PI.md` | the **client** side: how pi shapes load, what diverges a prefix cache, compaction staging and its revert |
 | `GLM.md` | GLM-5.3-Flash E192/E224: setup, `reasoning_effort` semantics, speed + quality vs Qwen C and MiMo |
 | `cluster.env.example` | template for the untracked `cluster.env` (HEAD, WORKER, API, REPO, MIMO_RECIPE) |
 | `scripts/` | Qwen-era benchmark tools; `bench_decode.py` works for any model (`--model`, `--url`); `prefix_probe.py` measures prefix-cache behaviour; `watch_stalls.sh` is the 2 s stall sampler |
@@ -69,6 +70,7 @@ proxy files and log `~/mimo-toolcap/` (container `mimo-toolcap`), vLLM container
 
 ## How to run the tests
 ```bash
+scripts/stage_pi_compaction.py --check                 # confirm the pi client staging (PI.md)
 node --test mimo/toolcap/*.test.cjs                    # 13 proxy unit tests, offline
 set -a; . ./cluster.env; set +a; mimo/test_mimo.py     # live: chat, tool-call parse, storm guard
 bash -n mimo/*.sh glm/*.sh scripts/*.sh quality/*.sh    # syntax
@@ -100,6 +102,12 @@ provider at `<head>:8000/mimo/v1`; only the one matching the model currently ser
 Qwen thinks by default, which costs it speed (see `QWEN_VS_MIMO.md`: 66–70 tok/s with thinking off vs 48–56 with it
 on). If decode speed matters more than reasoning in pi, turn reasoning off — Qwen with thinking on still beat MiMo
 with thinking off in every cell measured.
+
+**Read `PI.md` before investigating a "slow/stalling cluster" report.** The 2026-10-15 investigation found the server
+clean and the load shape client-side: pi re-sends whole histories (a third of turns >100K tokens), and a prefix-cache
+miss costs ~50 s of exclusive prefill. Staged there on 2026-10-15: pi `compaction.reserveTokens` 65536 /
+`keepRecentTokens` 20000 (compacts above 196,608 instead of 245,760), applied and reversible with
+`scripts/stage_pi_compaction.py --check|--revert`.
 
 ## Conventions
 - Every number in the docs is measured, with the result file next to it. Label anything unmeasured as unmeasured.

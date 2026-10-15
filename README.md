@@ -24,7 +24,8 @@ and the 300K window.
 | `MIMO.md` | MiMo-V2.6-Flash setup on this cluster, tool-call loop mitigations, measurements |
 | `QWEN_VS_MIMO.md` | same-cluster head-to-head: decode, concurrency, prefill, HumanEval+/MBPP+/GSM8K/LCB/long context |
 | `GLM.md` | GLM-5.3-Flash E192/E224 setup, speed and quality on this cluster, compared with Qwen C and MiMo |
-| `scripts/` | Qwen benchmark / health scripts (`bench_decode.py`, `spec_acceptance.py`, `check_cluster.sh`, `mtp_ab.sh`, `prefix_probe.py` for prefix-cache behaviour, `watch_stalls.sh` stall sampler) |
+| `scripts/` | Qwen benchmark / health scripts (`bench_decode.py`, `spec_acceptance.py`, `check_cluster.sh`, `mtp_ab.sh`, `prefix_probe.py` for prefix-cache behaviour, `watch_stalls.sh` stall sampler, `stage_pi_compaction.py` for the pi client staging) |
+| `PI.md` | the client side: how pi's request shape produces stalls, and the client-side tuning |
 | `quality/` | quality-eval harness (NLL, HumanEval+/MBPP+, GSM8K, thinking-mode, long context) |
 | `configs/` | diffs/patches applied to the Qwen deployment repo |
 | `mimo/` | MiMo setup / switch scripts, tool-call-cap proxy, functional tests |
@@ -58,6 +59,8 @@ MiMo is **not installed** on the nodes right now (removed 2026-10-07); `setup_no
 node --test mimo/toolcap/*.test.cjs               # proxy unit tests (no network, no GPU)
 API=http://<head>:8000 mimo/test_mimo.py  # MiMo functional checks; needs the MiMo setup running
 scripts/check_cluster.sh                  # Qwen health/config check (while Qwen is serving)
+scripts/prefix_probe.py                   # prefix-cache behaviour: cold / warm / competing / idle
+scripts/stage_pi_compaction.py --check    # pi client staging (see PI.md); --revert to undo
 ```
 - 2026-10-15 — single-stream decode reported as slower (~20 vs ~27 tok/s): **not a regression**. Same-tool re-check gives
   C1 62.4 (recorded 58.3) and C6 218.4 (recorded 228.2); `.env` is byte-identical to `.env.C-fp8dense`, same image, no throttling.
