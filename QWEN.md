@@ -293,10 +293,20 @@ What it says:
 - Scale of it: the `request_prompt_tokens` histogram shows 386 requests in (100K, 200K] and 97 above 200K since the
   10-13 launch, against a cumulative prefix hit rate of 95.3%. Most turns hit; the misses are enormous.
 
-**Why misses happen on prompts the server has seen**: pi injects `AGENTS.md`/`CLAUDE.md` into the system prompt, and
-the prefix cache hashes from token 0. Editing an injected instruction file re-crunches *every* running session. Three
-commit bursts to this repo today (09:49, 10:27, 11:05, 13:5x) each preceded a cluster of stalls by minutes; that is
-the mechanism, and it is worth remembering when someone says "the cluster stalls more since you started editing docs".
+**Why a miss happens on a prompt the server has already seen.** Corrected the same day: it is *not* editing
+`AGENTS.md` mid-session. pi reads context files inside `resourceLoader.reload()` (`resource-loader.js:468`, one call
+site: the explicit settings/extension reload path), and the injected copy in a session that has been running since
+10-07 is still the 10-07 text even after several same-day edits to the file on disk. So live sessions keep a stable
+prefix and my doc commits re-crunched nothing. What *does* diverge the prefix (hash from token 0): **session
+start/resume** (the file is re-read then, so an edited `AGENTS.md` costs exactly one full re-crunch at that boundary),
+model change, thinking-level change, tool/skill set changes, and compaction. All of those are session-boundary or
+structural events, which is also why the misses cluster at odd times rather than continuously.
+
+**The per-turn cost of a warm hit is roughly constant, not proportional** (`scripts/prefix_probe.py --steps cold,warm`,
+same session, 2026-10-15): recomputed-on-warm was 2,995 of 7,939 tokens at 8K, 2,535 of 23,959 at 24K, and 9,215 of
+96,559 at 96K — i.e. ~2.5-3K tokens (~0.8 s) at ordinary sizes and ~9K (~2.6 s) at 96K. Big contexts therefore do not
+slow the *hit* path much; they only make each **miss** catastrophic. That is the whole argument for smaller sessions:
+it bounds the tail risk, not the steady state.
 
 **`--performance-mode interactivity` is not a scheduler policy** — checked in the image (`config/vllm.py:411`): the
 modes change CUDA graph granularity and kernel selection only. There is no prefill-priority setting implied by it.
