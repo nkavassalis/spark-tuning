@@ -263,6 +263,56 @@ the same tool report C1 aggregate 37 instead of 62 (-40%) and 1K decode 52.8 ins
 readings today were contaminated this way. Check `run<=1` from `scripts/watch_stalls.sh` (or `/metrics`) before
 believing a speed number, and re-run anything with TTFT above ~0.3 s at C1.
 
+## The stall, caught end to end (2026-10-15 14:11) — it is re-crunch, and it is now quantified
+
+`scripts/watch_stalls.sh` with the fixed columns caught a 50-second episode and the counters identify the cause.
+Raw rows in `results/stall-watch/` (gitignored live logs); this is the shape:
+
+| time (UTC) | run | wait | wait_cap | kv% | gen_delta | prefill_recomputed | cache-hit alloc | gpu | psi | RoCE MB/s |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 14:11:09 | 1 | 0 | 0 | 2.4 | 3 | 0 | 0 | 96 | 0.00 | 1261 |
+| 14:11:12 | 1 | 1 | **1** | 2.7 | **0** | 0 | 0 | 96 | 0.00 | 1504 |
+| 14:11:30 | 1 | 1 | 1 | 4.5 | 0 | 0 | 0 | 96 | 0.00 | 1391 |
+| 14:11:56 | 1 | 1 | 1 | 6.5 | 0 | 0 | 0 | 96 | 0.00 | 1303 |
+| 14:11:59 | 2 | 0 | 0 | 10.2 | 0 | 0 | 0 | 96 | 0.00 | 1231 |
+| 14:12:02 | 2 | 0 | 0 | 10.0 | 50 | **182,012** | **140,080** | 94 | 0.00 | 970 |
+| 14:12:05 | 1 | 0 | 0 | 3.3 | 282 | 0 | 0 | 94 | 0.00 | 176 |
+
+What it says:
+
+- 50 s with one request running and one waiting **on capacity** (`wait_cap=1`), zero output tokens, GPU "96% busy",
+  RoCE sustained at 1.3-1.5 GB/s, KV creeping 2.7%→6.5%, and `psi_mem 0.00` throughout (no memory involvement).
+- When it finished, one counter flush landed: **182,012 prompt tokens recomputed** plus 140,080 served from cache
+  (the by-source counters are recorded at request completion, so they read 0 during the prefill and jump after it —
+  which is also why the 10-second `loggers.py` line showed "prompt throughput 0.0" while KV was climbing; trust the
+  counters, not that line). 182,012 tokens over ~50 s = **3,640 tok/s**, matching independently measured cold-prefill
+  rate (3,031-3,570 tok/s). KV creep of ~4,500 tokens/s matches the same thing.
+- So the frozen window was a **~180K-token prompt being re-prefilled from scratch** — a prefix-cache miss, not a
+  hang, not NCCL, not reclaim. One such turn is 50 s of engine time in which every other session sees no tokens and
+  the new one is blocked on capacity.
+- Scale of it: the `request_prompt_tokens` histogram shows 386 requests in (100K, 200K] and 97 above 200K since the
+  10-13 launch, against a cumulative prefix hit rate of 95.3%. Most turns hit; the misses are enormous.
+
+**Why misses happen on prompts the server has seen**: pi injects `AGENTS.md`/`CLAUDE.md` into the system prompt, and
+the prefix cache hashes from token 0. Editing an injected instruction file re-crunches *every* running session. Three
+commit bursts to this repo today (09:49, 10:27, 11:05, 13:5x) each preceded a cluster of stalls by minutes; that is
+the mechanism, and it is worth remembering when someone says "the cluster stalls more since you started editing docs".
+
+**`--performance-mode interactivity` is not a scheduler policy** — checked in the image (`config/vllm.py:411`): the
+modes change CUDA graph granularity and kernel selection only. There is no prefill-priority setting implied by it.
+
+### Knobs for this, in the order worth trying
+
+| Change | Where | Effect | Cost |
+|---|---|---|---|
+| Keep pi sessions smaller; compact before 100K | client | A full miss at 3.6K tok/s is 25 s at 90K, 50 s at 180K; nothing server-side can change that | losing old context |
+| Don't edit injected instruction files while agents are running | workflow | Removes the self-inflicted misses | batch doc edits instead |
+| `--max-num-batched-tokens 8192` → 4096 | restart | A 180K prefill becomes ~44 chunks instead of ~22, so decode of the other sessions gets a step every ~1 s instead of ~2 s | prefill throughput somewhat lower; the stalled request's own TTFT slightly worse |
+| `--long-prefill-token-threshold 16384` | restart | Caps how much of a *long* prompt one iteration chews, the purpose-built knob ("a request is considered long if the prompt is longer than this") | same direction as above |
+| `GPU_MEMORY_UTILIZATION` 0.835 → 0.80 | restart | ~+7 GiB OS headroom; `avail` is at 4.1 GiB, the guardrail floor | smaller KV pool (19% peak usage → no practical loss) |
+| `--no-async-scheduling` | restart | **Demoted**: the captured episodes are fully explained by long prefill, so this is a hypothesis again, not a suspect | unknown throughput cost |
+
+
 ## When does KV actually get flushed? (2026-10-15, measured with `scripts/prefix_probe.py`)
 
 Symptom that prompted it: an agent that has been idle for a while seems to get its whole prompt re-crunched, even
