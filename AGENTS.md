@@ -104,6 +104,9 @@ with thinking off in every cell measured.
 - Dates in docs: YYYY-MM-DD. New experiments get a section in the model's .md plus a result file.
 
 ## Known issues / TODOs
+- **Qwen stalls with 3-4 concurrent agents** (high load, no tokens, ~10-50 s episodes). Cause not proven; two
+  suspects (async scheduling enabled alongside MTP; host memory pressure with the engine swapped out). See
+  QWEN.md "Multi-agent stalls". `scripts/watch_stalls.sh` captures the evidence; both candidate fixes need a restart.
 - The proxy caps **streamed** responses only. Non-streaming requests can still storm.
 - MiMo is 1.3–2.7× slower than Qwen config C for single-user code (both thinking off); the gap grows with context (MiMo step rate falls 10.6→7.1/s from 1K to 128K, Qwen flat ~25/s).
 - MiMo quality: one run per test, so there's no noise floor for MiMo. Qwen's quality numbers are reused from 09-27/28.

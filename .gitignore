@@ -9,3 +9,4 @@ mimo/mimo.env
 __pycache__/
 *.pyc
 mimo/toolcap/proxy.log
+results/stall-watch/watch-*.csv

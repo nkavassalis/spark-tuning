@@ -129,6 +129,7 @@ the shell scripts also source an untracked `cluster.env` (copy `cluster.env.exam
 | `scripts/bench_decode.py` | no | decode tok/s + TTFT + **per-run MTP acceptance** for `code`, `code_ts`, `edit` (refactor real code in context), `prose`, `copy` × contexts × temperatures; `--json` for comparisons |
 | `scripts/spec_acceptance.py` | no | snapshot / delta / `--watch` of acceptance counters + draft-length estimate |
 | `scripts/mtp_ab.sh --yes [K...]` | **yes** (~11 min per K) | relaunches with each K, benchmarks, restores the original K and re-checks health; writes `results/mtp_ab-<ts>/` |
+| `scripts/watch_stalls.sh` | no | 2 s sampler for the stall symptom: scheduler state + wait reasons, engine progress, GPU util, host memory/swap/major-faults/PSI, RoCE traffic, worker memory. `--once` for a snapshot |
 | `scripts/compare_results.py a.json b.json` | no | side-by-side tok/s and % delta |
 | `quality/run_quality.sh <label>` | no | NLL on a fixed corpus + HumanEval+/MBPP+ (sandboxed execution) + GSM8K; ~70 min; run on a node with docker. `quality_eval.py compare-nll` / `compare-pass` for paired comparisons |
 
@@ -162,6 +163,52 @@ on the head (cold start ≈ 11 min; the first request after launch is slow while
 To revert everything: on the head, `cp .env.bak-20260926-2124 .env && git checkout start.sh && ./stop.sh && ./start.sh --launch`.
 
 ---
+
+## Multi-agent stalls (2026-10-15): measurement, not a fix yet
+
+Symptom reported: with 3-4 pi agents on it, the server shows high load but no agent gets prefilled or generated
+tokens for a while. What the server itself recorded, from `docker logs vllm-fn` and `/metrics`:
+
+- **It happens**: 14 ten-second windows today (~2.3 min), in three episodes (09:29:45-09:30:35, 09:34:25-09:34:45,
+  09:35:55-09:36:45): `Running: 2-3`, prompt throughput **0.0**, generation **0.7-2.6 tok/s**, KV usage *creeping up*.
+- **Server's own latency record** (790 requests since the 10-13 launch): 4 requests in the TTFT 40-80 s bucket,
+  91 of 188,969 inter-token gaps in the 2.5-5 s bucket, none over 5 s. Mean TTFT 1.7 s. So a few percent of turns
+  get a multi-second freeze, and a handful get tens of seconds.
+- **Not the queue and not the KV pool**: `num_preemptions_total` 0, `waiting_by_reason{capacity|deferred}` 0, KV usage
+  8-16% of a 4.25M-token pool while only 3-4 of the 8 slots are used.
+- **The engine stops stepping, it doesn't draft badly**: during the windows only 16 draft tokens were logged in 10 s
+  (against ~800 when healthy) while per-position acceptance stayed at 0.6-0.8. Acceptance is fine; steps stop.
+- **Ruled out**: Triton JIT (6 JIT-during-inference warnings total, none in a stall window), disk I/O (container
+  `read_bytes` 0, `vmstat` bi/bo ~0), NCCL/RoCE errors (none logged; link counters clean), GPU memory (96/120 GiB).
+
+Two live suspects, both consistent with "busy but no tokens":
+
+1. **Async scheduling is enabled** on this deployment. It isn't passed explicitly: `SchedulerConfig.async_scheduling`
+   defaults to `None` and is resolved to True, and it is *not* auto-disabled here because our method `mtp` is inside
+   `EagleModelTypes` (checked in the image: `vllm/config/vllm.py:1184`, `config/speculative.py:37`). Async scheduling
+   plus speculative decoding is precisely the combination the MiMo recipe turns off (`--no-async-scheduling`) because
+   of vllm#46669 (corrupted output under concurrency). A desync there looks exactly like this.
+2. **Host memory pressure on unified memory.** Head `MemAvailable` is ~5.2 GiB (the guardrail from the torch.compile
+   incident is "keep above ~4 GiB"), **2.4 GiB of the vLLM process is swapped out right now** (Worker_TP 1.44 GiB,
+   EngineCore 0.26 GiB, API server 0.6 GiB), with 8.15M major faults since boot. When the kernel reclaims the engine's
+   own host pages, the next step that touches them page-faults from NVMe: load without progress.
+
+Contributing: pi resends the whole history, and prompt sizes here are p50 ~54K / max ~172K tokens (`request_prompt_tokens`
+histogram), so every new turn admits a large prompt in one go — visible as the KV creep during the stall windows.
+
+**Next step**: `scripts/watch_stalls.sh` samples scheduler state (incl. wait reasons), engine progress, GPU util,
+host memory/swap/major-faults/PSI and RoCE traffic every 2 s into `results/stall-watch/`, so the next stall is
+captured with the cause attached rather than inferred from 10-s log lines. Two candidate fixes, each needing a
+restart (~11 min), to be A/B'd against the stall counter:
+
+| Candidate | Change | Expected cost |
+|---|---|---|
+| Disable async scheduling | add `--no-async-scheduling` to the launch | a few % decode at small batch (it exists to close GPU gaps) |
+| Give the OS room | `GPU_MEMORY_UTILIZATION` **down** to 0.80 (~+7 GiB OS headroom) | smaller KV pool (still >10x peak usage) |
+
+Note this is the *opposite* direction to the `MAX_NUM_SEQS=16 / GMU=0.86` change that was staged on 2026-10-04 and
+dropped on 2026-10-07: raising GMU takes memory away from the OS, and 16 in-flight 100K+-token prompts admit more KV
+at once. If stalls are memory-driven, that staged change would have made them worse.
 
 ## Things tried that failed / were rejected
 
@@ -249,3 +296,6 @@ see [FP8DENSE.md](FP8DENSE.md).)
 - 2026-10-04 — `.env` staged: MAX_NUM_SEQS 16, GMU 0.86 (dropped 2026-10-07 before ever going live). Confirmed client restarts do **not**
   evict the server KV pool (container up since 09-28, prefix-cache hit rate 95%, utilization ~6%); the slow
   first question after a client restart is a prefill miss on a rebuilt prompt prefix, not eviction.
+- 2026-10-15 — multi-agent stall investigated (3-4 agents): ~2.3 min of frozen engine steps in three episodes, 4 requests with TTFT 40-80 s.
+  Queue, KV pool, preemptions, JIT, disk and RoCE all clean. Suspects: async scheduling on with MTP, and host
+  memory pressure (5.2 GiB available, 2.4 GiB of the engine swapped out). `scripts/watch_stalls.sh` added to catch the next one.
