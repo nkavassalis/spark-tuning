@@ -39,7 +39,7 @@ tell the user. Fixing it means scrubbing plus a history rewrite, and rotating an
 | `QWEN_VS_MIMO.md` | same-cluster comparison; Qwen quality numbers reused from 2026-09-27/28 runs, not rerun (user's call) |
 | `GLM.md` | GLM-5.3-Flash E192/E224: setup, `reasoning_effort` semantics, speed + quality vs Qwen C and MiMo |
 | `cluster.env.example` | template for the untracked `cluster.env` (HEAD, WORKER, API, REPO, MIMO_RECIPE) |
-| `scripts/` | Qwen-era benchmark tools; `bench_decode.py` works for any model (`--model`, `--url`) |
+| `scripts/` | Qwen-era benchmark tools; `bench_decode.py` works for any model (`--model`, `--url`); `prefix_probe.py` measures prefix-cache behaviour; `watch_stalls.sh` is the 2 s stall sampler |
 | `quality/` | quality-eval harness (runs on a node with docker; `API` env required) |
 | `configs/` | diffs applied to the Qwen deployment repo (`env.diff`, `start.sh.patch`, FP8 overlays) |
 | `mimo/lib.sh` | shared vars: pinned recipe commit, image, iface/HCA defaults, ports, `on`, `drop_caches` |
@@ -74,8 +74,11 @@ set -a; . ./cluster.env; set +a; mimo/test_mimo.py     # live: chat, tool-call p
 bash -n mimo/*.sh glm/*.sh scripts/*.sh quality/*.sh    # syntax
 python3 -m py_compile scripts/*.py quality/*.py mimo/*.py glm/*.py
 ```
-Benchmarks (`scripts/bench_decode.py`, recipe `bench/mimobench.py` run on the head) are only valid when
-nothing else uses the server.
+Benchmarks (`scripts/bench_decode.py`, recipe `bench/mimobench.py` run on the head, `scripts/prefix_probe.py`) are
+only valid when nothing else uses the server. **This is not a footnote**: live agent traffic made the same tool read
+C1 aggregate 37 instead of 62 tok/s and 1K decode 52.8 instead of 63.9 on 2026-10-15. Before trusting a speed number
+confirm `vllm:num_requests_running` <= your own load (or watch `scripts/watch_stalls.sh`), and re-run any C1 cell whose
+TTFT exceeds ~0.3 s.
 
 ## Design decisions and why
 - **Recipe used unmodified, pinned** (`RECIPE_COMMIT` in `mimo/lib.sh`). Our scripts wrap it, so upstream fixes come
@@ -104,9 +107,15 @@ with thinking off in every cell measured.
 - Dates in docs: YYYY-MM-DD. New experiments get a section in the model's .md plus a result file.
 
 ## Known issues / TODOs
-- **Qwen stalls with 3-4 concurrent agents** (high load, no tokens, ~10-50 s episodes). Cause not proven; two
-  suspects (async scheduling enabled alongside MTP; host memory pressure with the engine swapped out). See
-  QWEN.md "Multi-agent stalls". `scripts/watch_stalls.sh` captures the evidence; both candidate fixes need a restart.
+- **Qwen stalls with 3-4 concurrent agents** (high load, no tokens, ~10-50 s episodes). Cause not proven. Captured
+  episodes (2026-10-15) show `gen_delta~0` with KV creeping and RoCE at 1.3-1.6 GB/s and **zero** memory pressure
+  (PSI 0.00, swapout 0), so reclaim is ruled out for those; leading explanation is admission/prefill of huge
+  mostly-cached prompts (pi resends the whole history: p50 ~54K, max ~172K tokens). See QWEN.md "Multi-agent stalls".
+  Async scheduling is confirmed ON with MTP (nothing disables it); turning it off is the cheap A/B, and both that and
+  GMU 0.80 need a restart.
+- **Speed is NOT regressed** (checked 2026-10-15 against the recorded baselines: C1 62.4 vs 58.3, C6 218 vs 228, env
+  byte-identical, same image, no throttling). Per-stream ~20 tok/s is 4 concurrent agents + thinking on; see the
+  decomposition table in QWEN.md "Speed re-check" before re-investigating this.
 - The proxy caps **streamed** responses only. Non-streaming requests can still storm.
 - MiMo is 1.3–2.7× slower than Qwen config C for single-user code (both thinking off); the gap grows with context (MiMo step rate falls 10.6→7.1/s from 1K to 128K, Qwen flat ~25/s).
 - MiMo quality: one run per test, so there's no noise floor for MiMo. Qwen's quality numbers are reused from 09-27/28.
@@ -125,6 +134,13 @@ with thinking off in every cell measured.
   GLM vision input, 1M context and `max_num_seqs` > 8 not exercised.
 - `mimo/up.sh`, `mimo/down.sh --qwen` and removing MiMo from the nodes were all exercised end to end on 2026-10-07.
 - The cleanup chown step at the end of `mimo/setup_nodes.sh` has not been run (added during cleanup); verify it on the next provision.
+- Stall episodes WERE captured live with `scripts/watch_stalls.sh` on 2026-10-15 (`results/stall-watch/`), but the two
+  columns that would prove the mechanism (`prefill_recomputed`, `prefix_cache_hit_alloc`) read 0 at the time: vLLM
+  serves big counters in scientific notation (`4.68835e+06`) and the row parser truncated them. Fixed and re-verified
+  (3 windows of 2.4-3.6K recomputed tokens at 92-95% hit rate seen on a live 32K prefill). The stall cause is still
+  unproven; the next capture should settle cached-admission vs recompute.
+- C6 re-check (218.4 tok/s, 2026-10-15) is a single run; spread on this bench was previously measured at 6-15%.
+- Prefix-cache results (cold/warm/competing/idle) are one run each, no repeat spread.
 
 ## Do-not-touch (ask the user first)
 - Don't enable torch.compile / compilation modes or raise GMU above the recipe's 0.90. A memory overcommit hung
@@ -132,6 +148,7 @@ with thinking off in every cell measured.
 - Don't remove the tool-call cap, change `toolCap`, or point agents at the raw :8888 port.
 - Don't change repo visibility, push secrets/site details, or rewrite history without asking.
 - Don't modify the Qwen deployment repo on the head beyond what `configs/` documents.
+- Don't take a speed measurement while agents are using the server, and don't conclude "it regressed" from one.
 
 ## Guardrails in effect
 - GitHub: `nkavassalis/spark-tuning`, **PUBLIC** (the user's choice; normally repos are private). Account must be `nkavassalis` (`gh auth status`).

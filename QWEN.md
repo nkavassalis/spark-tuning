@@ -179,7 +179,11 @@ tokens for a while. What the server itself recorded, from `docker logs vllm-fn` 
 - **The engine stops stepping, it doesn't draft badly**: during the windows only 16 draft tokens were logged in 10 s
   (against ~800 when healthy) while per-position acceptance stayed at 0.6-0.8. Acceptance is fine; steps stop.
 - **Ruled out**: Triton JIT (6 JIT-during-inference warnings total, none in a stall window), disk I/O (container
-  `read_bytes` 0, `vmstat` bi/bo ~0), NCCL/RoCE errors (none logged; link counters clean), GPU memory (96/120 GiB).
+  `read_bytes` 0, `vmstat` bi/bo ~0), NCCL/RoCE errors (none logged; link counters clean), GPU memory (96/120 GiB),
+  and — from the episodes captured on 2026-10-15 with `scripts/watch_stalls.sh` — **memory reclaim**: every frozen
+  window sampled `psi_mem 0.00`, `swapout 0 KB/s`, `majfault_delta 0`, worker `avail` steady at ~8.5 GiB. Memory
+  pressure only appeared at 10:19:06-15 when `avail` dipped to 4.0 GiB (PSI "some" peaked at 0.72), i.e. it followed
+  the stall rather than causing it.
 
 Two live suspects, both consistent with "busy but no tokens":
 
@@ -209,6 +213,113 @@ restart (~11 min), to be A/B'd against the stall counter:
 Note this is the *opposite* direction to the `MAX_NUM_SEQS=16 / GMU=0.86` change that was staged on 2026-10-04 and
 dropped on 2026-10-07: raising GMU takes memory away from the OS, and 16 in-flight 100K+-token prompts admit more KV
 at once. If stalls are memory-driven, that staged change would have made them worse.
+
+## Speed re-check (2026-10-15): nothing regressed — here is what the ~20 tok/s actually is
+
+Reported: single-stream coding decode feels like ~20 tok/s against ~27 remembered from the config-C days. Measured
+against the recorded baselines (`results/mimo/bench-qwen-C-tp2.json`, `results/mimo/qwen-bench_decode-vsmimo-*.json`),
+the server has **not** regressed; what changed is the measurement context.
+
+Drift checks, all clean:
+
+| What | Now | Config-C era | Verdict |
+|---|---|---|---|
+| `.env` on the head | byte-identical to `.env.C-fp8dense` (diff empty) | same | no drift |
+| Launch flags | `--gpu-memory-utilization 0.835 --max-num-seqs 8 --max-num-batched-tokens 8192 --kv-cache-dtype fp8 --speculative-config {mtp,K=2} --compilation-config {mode:0,FULL_DECODE_ONLY} --performance-mode interactivity` | same | no drift |
+| Image | `vllm/vllm-openai:qwen38-flash-next`, built 2026-08-26 | same image | no drift |
+| KV pool | 4,481,625 tokens / 17.10x (boot log 10-13) | 4.25M / 16.2x (10-07) | +5%, bigger now |
+| Clocks / throttling | 2501 MHz under load, 61 C, 32 W, no `HW Slowdown` / `SW Power Cap` / thermal bits set | - | not throttled |
+| OS updates touching driver/CUDA/firmware since 10-12 | none in `/var/log/apt/history.log`; no reboot since 09-27 | - | no drift |
+
+Same-tool comparison (recipe bench, temperature 0, thinking off, 9 categories, `results/qwen-c-rcheck-mimobench-2026-10-15.json`):
+
+| Cell | Recorded 2026-10-07 | Re-measured 2026-10-15 | Delta |
+|---|---|---|---|
+| C1 aggregate | 58.3 tok/s | **62.4** | +7% |
+| C6 aggregate | 228.2 tok/s | **218.4** | -4% (single run; run-to-run spread on this bench was already measured at 6-15%) |
+| C1 coding, per stream | 74.1 | 74.3 | 0% |
+| C1 math, per stream | 74.7 | 76.8 | +3% |
+
+So the ~20 tok/s is the *session* condition, not the machine. Decomposition, all T=0.6, `scripts/bench_decode.py`,
+`results/qwen-c-rcheck-thinkon-2026-10-15.json` plus this session's concurrency runs (thinking ON = what pi sends):
+
+| Condition | Per-stream tok/s | Engine steps/s per stream |
+|---|---|---|
+| 1 stream, box idle, thinking **off**, 1K | 63.9 | 24.6 (acc 2.60) |
+| 1 stream, box idle, thinking **on**, 1K | 52.8 | 25.8 (acc 2.05) |
+| 3 streams, thinking on, 1K | 32.0 | 14.6 |
+| 4 streams, thinking on, 1K | 26.9-29.3 | 12.7-13.9 |
+| 4 streams, thinking on, 32K | 22.7-26.1 | 11.2-12.9 |
+| 1 stream, thinking on, 64K | 43.5 | 24.6 |
+
+Read it this way: at 4 concurrent agents a single stream gets 23-29 tok/s while the cluster as a whole does 98-112
+tok/s (vs 53 for one stream). Concurrency costs per-stream speed and buys aggregate throughput; context size costs
+much less for Qwen than it does for MiMo (Qwen stays within ~20% from 1K to 128K). Thinking on costs ~20% at C1 and
+shows up as lower MTP acceptance (2.05 vs 2.60 tokens/step), which is why the pi-facing number is near 20 while the
+idle-box number is 52-64.
+
+**Benchmarking rule learned the hard way today**: an agent session running on the server while you benchmark makes
+the same tool report C1 aggregate 37 instead of 62 (-40%) and 1K decode 52.8 instead of 63.9. Two of my three early
+readings today were contaminated this way. Check `run<=1` from `scripts/watch_stalls.sh` (or `/metrics`) before
+believing a speed number, and re-run anything with TTFT above ~0.3 s at C1.
+
+## When does KV actually get flushed? (2026-10-15, measured with `scripts/prefix_probe.py`)
+
+Symptom that prompted it: an agent that has been idle for a while seems to get its whole prompt re-crunched, even
+though nothing restarted since it was last seen. Measured, not inferred: the server counts prompt tokens by source
+(`vllm:prompt_tokens_by_source_total{source="local_compute"|"local_cache_hit"}`), so `scripts/prefix_probe.py` reads
+those counters around each request and reports recomputed vs cached for that request alone (this fork returns
+`usage.prompt_tokens_details = null`, so the response body cannot be used).
+
+Probe: a 23,959-token prompt with a random nonce, sent cold, warm, after competing prompts, and after sitting idle.
+Files `results/prefix-probe-2026-10-15.json`, `results/prefix-probe-idle-1007.json`.
+
+| Step | Recomputed | Cached | Verdict |
+|---|---|---|---|
+| first sight | 23,959 | 0 | baseline: a cold 24K prompt is ~8 s of prefill |
+| same bytes again, immediately | 7,479 | 16,480 (68.8%) | mechanism works, but not all of it comes back |
+| same bytes again, after 3 competing prompts of the same size | 2,535 | 21,424 (89.4%) | competing traffic did **not** evict it |
+| same bytes again after 900 s with nothing sent | 2,535 | 21,424 (89.4%) | **idle does not flush anything** |
+
+So, on this deployment:
+
+- **There is no timer.** Nothing expires a cached prefix; an idle agent keeps its KV as long as the blocks are there.
+  `vllm:engine_sleep_state` reads `awake` (not `discard_all`), and nothing on the nodes calls `/sleep` — no timer or
+  cron unit touches the server.
+- **A warm prompt still re-crunches a fixed tail.** The same prompt recomputed exactly 2,535 tokens (10.6%) on every
+  repetition, including after the idle gap. Expect ~10% of a prompt to be recomputed even with a perfect cache hit;
+  on a 130K agent context that is ~13K tokens, ~4 s of prefill, every turn.
+- **Eviction is pressure-driven (LRU), and there was no pressure**: KV usage during all of this was 5-19% of a
+  4.48M-token pool. Idle prefixes are not evicted while the pool is this empty.
+- **Therefore a full re-crunch of a prompt the server has already seen means the prefix diverged, not that KV was
+  flushed.** The prefix cache matches from token 0 (`prefix_caching_hash_algo=sha256`, block_size 8), so anything
+  that changes the *front* of the request invalidates everything after it: the system prompt, the tool list, and (for
+  pi) the project instructions file. Editing `AGENTS.md` mid-day invalidates every session's prompt, which is exactly
+  the kind of day this was.
+- **What this means for the stall symptom.** A pi turn re-sends the whole history (p50 ~54K, max ~172K tokens here).
+  A full miss at 3.5K tok/s is 15-50 s during which the engine logs prompt throughput while decode of everyone else
+  crawls. Captured episodes (10:08, 10:18-10:19 in `results/stall-watch/`) show `gen_delta ~0` with KV creeping and
+  RoCE at 1.3-1.6 GB/s, and the engine logging `prompt throughput 0.0` at the same time — consistent with *admission
+  of huge mostly-cached prompts* rather than recompute, but the sampler columns that would prove it
+  (`prefix_cache_hit_alloc`) were broken by a parsing bug that day, so this is the leading explanation, not a
+  confirmed one. The same windows show PSI memory 0.00 and no swap-out, so memory pressure was **not** the cause.
+
+### Why is there 4.3 GiB in swap on a box that reports free RAM? (2026-10-15)
+
+Because on a GB10 there is no second pool of memory: `free` on the head reads total 121 GiB, **used 117 GiB**, free
+2.1 GiB, buff/cache 5.7 GiB, available 4.1 GiB (worker: available 7.5 GiB). The engine's ~101 GiB of GPU/UVM
+reservation is the same silicon the OS is counting, so the whole host has ~4 GiB of slack, and `vm.swappiness=60`
+(the distro default) means the kernel prefers paging anonymous/shared memory out to discarding page cache. Swap is a
+16 GB file, 4.3 GiB used on the head and 2.5 GiB on the worker.
+
+The important detail: **the swapped bytes are not the engine's hot pages.** Every vLLM process reports
+`VmSwap: 0 kB` (API server RSS 2.4 GiB, EngineCore 1.1 GiB, Worker_TP0 2.5 GiB), while the container's
+`memory.swap.current` was 4.4 GiB — that combination means shared/tmpfs-backed buffers (NCCL and `/dev/shm` segments,
+host `Shmem` is 2.4 GiB) are what got swapped, not weights, KV metadata or Python heap. Consistent with this, the
+captured stall windows show `psi=0.00`, `swapout=0`, `majfault_delta=0`, so reclaim was not on the critical path at
+the moment of a freeze. Memory is therefore a **risk** (4 GiB available is at the guardrail line set after the
+torch.compile hang) rather than a demonstrated cause. Without root we cannot lower `vm.swappiness`; the lever we do
+have is `GPU_MEMORY_UTILIZATION`, which is also the lever for the stall fix — see the candidates below.
 
 ## Things tried that failed / were rejected
 
@@ -299,3 +410,6 @@ see [FP8DENSE.md](FP8DENSE.md).)
 - 2026-10-15 — multi-agent stall investigated (3-4 agents): ~2.3 min of frozen engine steps in three episodes, 4 requests with TTFT 40-80 s.
   Queue, KV pool, preemptions, JIT, disk and RoCE all clean. Suspects: async scheduling on with MTP, and host
   memory pressure (5.2 GiB available, 2.4 GiB of the engine swapped out). `scripts/watch_stalls.sh` added to catch the next one.
+- 2026-10-15 — prefix-cache flush question answered by measurement (`scripts/prefix_probe.py`): no timer, idle does not flush, competing traffic did not evict;
+  a warm prompt still re-crunches a fixed ~10% tail (2,535 of 23,959 tokens). A full re-crunch means the prompt diverged from its cached prefix.
+- 2026-10-15 — captured two stall episodes live; memory reclaim ruled out (PSI 0.00 during every frozen window). Speed re-check: no regression, ~20 tok/s = 4 agents + thinking.

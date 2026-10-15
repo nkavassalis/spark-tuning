@@ -1,0 +1,41 @@
+{
+ "api": "<head>",
+ "model": "",
+ "args": {
+  "api": "http://<head>:8000",
+  "tokens": 24000,
+  "load": 3,
+  "idle": 600,
+  "steps": "cold,warm,load",
+  "json": "results/prefix-probe-2026-10-15.json"
+ },
+ "rows": [
+  {
+   "step": "cold (first sight)",
+   "prompt_tokens": 23959,
+   "recomputed": 23959,
+   "cached": 0,
+   "cached_pct": 0.0,
+   "e2e_s": 7.96,
+   "kv_after": 0.0
+  },
+  {
+   "step": "warm (immediately again)",
+   "prompt_tokens": 23959,
+   "recomputed": 7479,
+   "cached": 16480,
+   "cached_pct": 68.8,
+   "e2e_s": 2.74,
+   "kv_after": 0.0
+  },
+  {
+   "step": "after 3 competing prompts",
+   "prompt_tokens": 23959,
+   "recomputed": 2535,
+   "cached": 21424,
+   "cached_pct": 89.4,
+   "e2e_s": 1.11,
+   "kv_after": 0.0
+  }
+ ]
+}
