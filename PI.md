@@ -113,11 +113,19 @@ Not the cause, despite being the obvious guess: **thinking tokens are counted** 
 `thinking_delta` as well as `text_delta` (`src/core/message-handlers.ts:33`), and this build streams reasoning as
 `delta.reasoning`.
 
-Fix for the live number: `countStrategy: "estimate"` in the `tokenSpeed` block of `~/.pi/agent/settings.json` (no such
-block exists today, so every setting is at its default). It matches the true rate within ~8% on all three rows above.
-`useProviderTokens: true` does **not** help the streaming figure: pi does send `stream_options.include_usage`, but
-vLLM emits usage only in the **final** chunk, so it can only snap the total at the end - which the extension already
-does via `reconcileTotal()` on message end.
+Fix for the live number: **staged 2026-10-16** — `"tokenSpeed": { "countStrategy": "estimate" }` is now in
+`~/.pi/agent/settings.json` (backup `settings.json.bak-*-tokspeed` beside it). It tracks the true rate within ~8% on all
+three rows above. Notes for whoever revisits this:
+
+- The value must be the **key** (`"estimate"`), not the UI label; `ScalarSettingsItem.validate()` checks
+  `Object.keys(labels)` and silently substitutes the default (`direct`) for anything else.
+- It is read in `settings.initialize()`, which runs from the extension's `session_start` handler — so it applies at the
+  **next session start**, no need to restart pi just for it. Invalid values surface as a
+  `[pi-token-speed] Invalid countStrategy …` notification, which is the fastest confirmation that it took.
+- `/tps` opens the extension's own settings menu (and writes the same block).
+- `useProviderTokens: true` does **not** help the streaming figure: pi does send `stream_options.include_usage`, but
+  vLLM emits usage only in the **final** chunk, so it can only snap the total at the end - which the extension already
+  does via `reconcileTotal()` on message end.
 
 Corollary worth remembering: because the divisor is the acceptance length, **better speculative acceptance makes the
 display read worse** while the engine actually gets faster. For any speed question use
