@@ -20,6 +20,9 @@ import argparse, concurrent.futures as cf, glob, json, math, os, re, sys, time, 
 URL = os.environ.get("API", "http://localhost:8000")
 MODEL = os.environ.get("MODEL", "qwen3.8-flash-next")
 CONC = int(os.environ.get("CONCURRENCY", "8"))
+# Optional bearer key (vLLM --api-key), e.g. when locking a benchmark server against other clients.
+HEADERS = {"Content-Type": "application/json",
+           **({"Authorization": "Bearer " + os.environ["API_KEY"]} if os.environ.get("API_KEY") else {})}
 # Request fields that turn thinking off. Default is Qwen/MiMo's template switch. A model that can't turn
 # thinking off (GLM-5.3: always thinks) gets its lowest effort instead, e.g.
 #   NOTHINK_KWARGS='{"chat_template_kwargs":{"reasoning_effort":"low"}}' NOTHINK_MAX_TOKENS=8192
@@ -31,7 +34,7 @@ def post(path, payload, timeout=1800, retries=3):
     for i in range(retries):
         try:
             req = urllib.request.Request(URL + path, data=json.dumps(payload).encode(),
-                                         headers={"Content-Type": "application/json"})
+                                         headers=HEADERS)
             return json.loads(urllib.request.urlopen(req, timeout=timeout).read())
         except Exception as e:
             if i == retries - 1:

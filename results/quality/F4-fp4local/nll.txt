@@ -1,0 +1,1 @@
+190,191 tokens, mean NLL 0.13329 nats, ppl 1.1426 -> results/F4/nll.jsonl

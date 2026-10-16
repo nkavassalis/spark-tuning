@@ -10,6 +10,9 @@ Public notes, scripts and measured results from tuning LLM serving on a 2-node D
 - GLM-5.3-Flash, autotrust NAS-pruned NVFP4 builds E192 / E224 (NVFP4 MTP K=2): `GLM.md`. Benchmarked 2026-10-13:
   ties or beats Qwen C on every task benchmark (not on corpus NLL), 2–3× slower decode (~11.5 vs ~25.5 engine steps/s). E224 is the better GLM
   (same speed, 100% long context). **Removed from both nodes** on 2026-10-13 (checkpoints, image, caches); `GLM_VARIANT=E224 glm/setup_nodes.sh && GLM_VARIANT=E224 glm/up.sh` rebuilds it (158 GB download).
+- nvidia Qwen3.8-Flash-Next-FP4-Local (QAD NVFP4 + MXFP8, community b12x vLLM build): `FP4LOCAL.md`. Benchmarked 2026-10-16 at TP=2:
+  ties or beats config C on every quality test, but 5–14% slower with thinking on and ~20% less aggregate at 3–6 streams, so
+  config C stayed live. Checkpoint + image still on both nodes: `LIVE=1 SPEC_TOKENS=2 fp4local/up.sh` makes it the live model.
 - Head-to-head: `QWEN_VS_MIMO.md` (and the three-way tables in `GLM.md`). **Current state: Qwen config C serving on :8000.**
   MiMo is not installed; `mimo/setup_nodes.sh && mimo/up.sh` rebuilds it (~30 min, 178 GB download).
 Goal for all: fast, high-quality single-user code generation for coding agents, with no change that
@@ -39,6 +42,7 @@ tell the user. Fixing it means scrubbing plus a history rewrite, and rotating an
 | `QWEN_VS_MIMO.md` | same-cluster comparison; Qwen quality numbers reused from 2026-09-27/28 runs, not rerun (user's call) |
 | `PI.md` | the **client** side: how pi shapes load, what diverges a prefix cache, compaction staging and its revert |
 | `GLM.md` | GLM-5.3-Flash E192/E224: setup, `reasoning_effort` semantics, speed + quality vs Qwen C and MiMo |
+| `FP4LOCAL.md` | nvidia FP4-Local vs config C: K sweep, quality vs A/B/C, KV sizing, lock-out and live switch |
 | `cluster.env.example` | template for the untracked `cluster.env` (HEAD, WORKER, API, REPO, MIMO_RECIPE) |
 | `scripts/` | Qwen-era benchmark tools; `bench_decode.py` works for any model (`--model`, `--url`); `prefix_probe.py` measures prefix-cache behaviour; `watch_stalls.sh` is the 2 s stall sampler |
 | `quality/` | quality-eval harness (runs on a node with docker; `API` env required) |
@@ -53,6 +57,7 @@ tell the user. Fixing it means scrubbing plus a history rewrite, and rotating an
 | `glm/setup_nodes.sh` | head download, MTP config flip (`num_nextn_predict_layers` 1), rsync to worker, image pull, patch script copy |
 | `glm/up.sh` / `glm/down.sh [--qwen]` | switch cluster to GLM (writes `~/glm-cache/serve.sh` per node, container `vllm_glm`) / stop it |
 | `glm/patch_vllm.py` | idempotent in-container patch of vLLM 0.31.0 so the standalone `mtp-nvfp4/` draft loads |
+| `fp4local/lib.sh`, `setup_nodes.sh`, `up.sh`, `down.sh` | FP4-Local at TP=2 with nvidia's recipe (compile on, user-approved 2026-10-16); `API_KEY` locks it for benchmarks, `LIVE=1` serves it to agents |
 | `results/` | raw outputs; `results/mimo/` for MiMo |
 
 ## How to run
@@ -63,6 +68,8 @@ mimo/up.sh                           # stops Qwen, starts MiMo (~13.5 min) + pro
 mimo/down.sh --qwen                  # back to Qwen
 ```
 GLM: `GLM_VARIANT=E192 glm/up.sh` (or E224), `glm/down.sh --qwen`; API `http://<head>:8000/v1`, model `glm53-flash-e192`.
+FP4-Local: `fp4local/up.sh` (needs `fp4local/setup_nodes.sh` once; checkpoint is in the HF cache, whose 2.x blob store lives at `~/.cache/huggingface/hub/blobs/`).
+**Benchmark lock-out:** put `API_KEY=` in `cluster.env`; `fp4local/up.sh` serves with `--api-key`, and `bench_decode.py`, `quality/*` and the runners send it. In the b12x build `/metrics` is behind the key too.
 GLM always thinks: send `chat_template_kwargs.reasoning_effort` = `low` (no reasoning) or `high`; **omitted = `max`**.
 Endpoints (MiMo): agents `http://<head>:8000/mimo/v1` (proxy); raw vLLM `http://<head>:8888/v1`; model `mimo-v2.6-flash`.
 On the nodes: recipe checkout `~/mimo-recipe`, weights `~/models/MiMo-V2.6-Flash-RL`, cache `~/mimo-cache`,

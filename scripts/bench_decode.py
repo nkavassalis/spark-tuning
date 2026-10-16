@@ -16,6 +16,9 @@ NOTE: acceptance counters are server-global. If another client is using the
 server during a run, that row's acceptance (and tok/s) is contaminated.
 """
 import argparse, json, os, re, statistics, sys, time, urllib.request
+# Optional bearer key (vLLM --api-key), e.g. when locking a benchmark server against other clients.
+HEADERS = {"Content-Type": "application/json",
+           **({"Authorization": "Bearer " + os.environ["API_KEY"]} if os.environ.get("API_KEY") else {})}
 
 FILLER = ("Entry {i:06d}: the quarterly logistics audit recorded a routine "
           "variance in the northbound depot inventory.\n")
@@ -56,7 +59,7 @@ LINE = re.compile(r"^([a-z_:]+)(?:\{([^}]*)\})?\s+([0-9.eE+-]+)$")
 
 def scrape(base):
     try:
-        body = urllib.request.urlopen(base + "/metrics", timeout=20).read().decode()
+        body = urllib.request.urlopen(urllib.request.Request(base + "/metrics", headers=HEADERS), timeout=20).read().decode()
     except Exception:
         return {}
     out = {}
@@ -104,7 +107,7 @@ def run(base, model, ctx, task, n, temp, thinking=None, chat_kwargs=None):
         payload.setdefault("chat_template_kwargs", {}).update(chat_kwargs)
     req = urllib.request.Request(base + "/v1/chat/completions",
                                  data=json.dumps(payload).encode(),
-                                 headers={"Content-Type": "application/json"})
+                                 headers=HEADERS)
     t0 = time.time(); ttft = t_last = usage = None
     for raw in urllib.request.urlopen(req, timeout=3600):
         s = raw.decode().strip()

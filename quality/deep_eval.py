@@ -14,6 +14,9 @@ divergence comes from the logits, not from sampling luck.
 """
 import argparse, base64, concurrent.futures as cf, json, math, os, pickle, random, re, subprocess, sys, time, zlib
 import urllib.request
+# Optional bearer key (vLLM --api-key), e.g. when locking a benchmark server against other clients.
+HEADERS = {"Content-Type": "application/json",
+           **({"Authorization": "Bearer " + os.environ["API_KEY"]} if os.environ.get("API_KEY") else {})}
 
 URL = os.environ.get("API", "http://localhost:8000")
 MODEL = os.environ.get("MODEL", "qwen3.8-flash-next")
@@ -24,7 +27,7 @@ def post(path, payload, timeout=7200, retries=3):
     for i in range(retries):
         try:
             req = urllib.request.Request(URL + path, data=json.dumps(payload).encode(),
-                                         headers={"Content-Type": "application/json"})
+                                         headers=HEADERS)
             return json.loads(urllib.request.urlopen(req, timeout=timeout).read())
         except Exception as e:
             if i == retries - 1:
