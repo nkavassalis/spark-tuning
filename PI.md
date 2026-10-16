@@ -21,7 +21,7 @@ pi re-sends the entire conversation on every turn. That is free when the prefix 
 
 | Path | Measured cost |
 |---|---|
-| Warm hit (any size) | ~2,500–3,000 tokens recomputed, roughly **constant** — 2,995 of 7,939 at 8K, 2,535 of 23,959 at 24K, 9,215 of 96,559 at 96K (`results/prefix-probe-*.json`). ~0.8 s at ordinary sizes |
+| Warm hit, steady state (any size) | ~2,500–3,000 tokens recomputed, roughly **constant** — 2,995 of 7,939 at 8K, 2,535 of 23,959 at 24K, 2,623 of 96,559 at 96K (`results/prefix-probe-tail-*-2026-10-15.json`). ~0.8 s regardless of context |
 | Cold miss | 182,012 tokens = **50 s** of exclusive prefill at 3,640 tok/s; captured with a second request blocked on scheduler capacity and every other stream at zero tokens (`results/stall-watch/stall-2026-10-15T1411.csv`) |
 | Concurrency tax, thinking on, T=0.6 | 1 stream 52.8 tok/s → 3 streams 32.0 → 4 streams 26.9–29.3 at 1K, 22.7–26.1 at 32K (aggregate 98–112) |
 
@@ -36,6 +36,11 @@ edited `AGENTS.md` costs exactly one full re-crunch at the next session boundary
 change, tool/skill set changes, `/reload` or settings changes, and compaction (which rewrites history). What does
 **not** diverge it, all measured: idle time (89.4% of a 24K prompt still served after 900 s of nothing), competing
 traffic from other agents, and editing the instruction files mid-session.
+
+One nuance found while banking the raw data: the **first** repeat after a cold prefill recomputes more than steady
+state — 9,215 tokens on a 96K prompt on the first warm pass, 2,623 on the next. So a turn immediately after a miss
+costs a little extra; from the turn after that, the tail is flat. Earlier drafts of this doc quoted the 9,215 figure
+as the steady-state cost; corrected 2026-10-15.
 
 ## Tuning the client (no server restart needed)
 

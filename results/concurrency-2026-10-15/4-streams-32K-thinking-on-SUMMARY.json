@@ -1,0 +1,22 @@
+{
+ "condition": "4-streams-32K-thinking-on",
+ "model": "qwen3.8-flash-next",
+ "url": "http://<head>",
+ "time": "2026-10-15 10:42:07",
+ "decode_tokens": 500,
+ "per_stream_tok_s": {
+  "code": 26.1,
+  "code_ts": 24.3,
+  "edit": 22.7,
+  "prose": 24.8
+ },
+ "aggregate_tok_s": 97.8,
+ "steps_per_s_per_stream": {
+  "code": 12.9,
+  "code_ts": 12.1,
+  "edit": 11.2,
+  "prose": 12.4
+ },
+ "ttft_s_mean": 15.33,
+ "note": "streams launched simultaneously; server otherwise idle; thinking on = what pi sends"
+}

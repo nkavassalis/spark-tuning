@@ -241,7 +241,8 @@ Same-tool comparison (recipe bench, temperature 0, thinking off, 9 categories, `
 | C1 math, per stream | 74.7 | 76.8 | +3% |
 
 So the ~20 tok/s is the *session* condition, not the machine. Decomposition, all T=0.6, `scripts/bench_decode.py`,
-`results/qwen-c-rcheck-thinkon-2026-10-15.json` plus this session's concurrency runs (thinking ON = what pi sends):
+`results/qwen-c-rcheck-thinkon-2026-10-15.json` and the concurrency runs in `results/concurrency-2026-10-15/`
+(one JSON per stream plus a SUMMARY per condition; thinking ON = what pi sends):
 
 | Condition | Per-stream tok/s | Engine steps/s per stream |
 |---|---|---|
@@ -259,7 +260,10 @@ shows up as lower MTP acceptance (2.05 vs 2.60 tokens/step), which is why the pi
 idle-box number is 52-64.
 
 **Benchmarking rule learned the hard way today**: an agent session running on the server while you benchmark makes
-the same tool report C1 aggregate 37 instead of 62 (-40%) and 1K decode 52.8 instead of 63.9. Two of my three early
+the same tool report C1 aggregate 37 instead of 62 (-40%) and 1K decode 52.8 instead of 63.9. (Those contaminated
+numbers are stdout only: `mimobench.py` writes its JSON at the end and that run died on a missing output directory, so
+there is no raw file for them — the *clean* run is banked as `results/qwen-c-rcheck-mimobench-2026-10-15.json`.)
+Two of my three early
 readings today were contaminated this way. Check `run<=1` from `scripts/watch_stalls.sh` (or `/metrics`) before
 believing a speed number, and re-run anything with TTFT above ~0.3 s at C1.
 
@@ -303,10 +307,13 @@ model change, thinking-level change, tool/skill set changes, and compaction. All
 structural events, which is also why the misses cluster at odd times rather than continuously.
 
 **The per-turn cost of a warm hit is roughly constant, not proportional** (`scripts/prefix_probe.py --steps cold,warm`,
-same session, 2026-10-15): recomputed-on-warm was 2,995 of 7,939 tokens at 8K, 2,535 of 23,959 at 24K, and 9,215 of
-96,559 at 96K — i.e. ~2.5-3K tokens (~0.8 s) at ordinary sizes and ~9K (~2.6 s) at 96K. Big contexts therefore do not
-slow the *hit* path much; they only make each **miss** catastrophic. That is the whole argument for smaller sessions:
-it bounds the tail risk, not the steady state.
+3 sizes, `results/prefix-probe-tail-{8000,24000,96000}-2026-10-15.json`): in steady state the recomputed tail is
+2,535 of 23,959 at 24K (89.4% hit) and 2,623 of 96,559 at 96K (97.3% hit) — i.e. ~2.5-3K tokens, about 0.8 s, at any
+size. Caveat found while banking the raw data: the **first** warm pass right after a cold prefill recomputes more
+(9,215 on that same 96K prompt, 2,995 on a fresh 8K one), because the final chunk isn't cached yet; the turn after
+that is flat. An earlier draft of this section used the first-warm figure as steady state — corrected 2026-10-15.
+Big contexts therefore do not slow the *hit* path at all; they only make each **miss** catastrophic. That is the whole
+argument for smaller sessions: it bounds the tail risk, not the steady state.
 
 **`--performance-mode interactivity` is not a scheduler policy** — checked in the image (`config/vllm.py:411`): the
 modes change CUDA graph granularity and kernel selection only. There is no prefill-priority setting implied by it.

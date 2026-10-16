@@ -1,0 +1,38 @@
+{
+ "api": "<head>",
+ "model": "",
+ "args": {
+  "api": "http://<head>:8000",
+  "tokens": 24000,
+  "load": 3,
+  "idle": 600,
+  "steps": "cold,warm",
+  "json": "results/prefix-probe-tail-24000-2026-10-15.json"
+ },
+ "rows": [
+  {
+   "step": "cold (first sight)",
+   "prompt_tokens": 23959,
+   "recomputed": 2535,
+   "cached": 21424,
+   "cached_pct": 89.4,
+   "e2e_s": 1.11,
+   "kv_after": 0.0,
+   "overlap_requests": 0,
+   "queries_delta": 23959,
+   "clean": true
+  },
+  {
+   "step": "warm (immediately again)",
+   "prompt_tokens": 23959,
+   "recomputed": 2535,
+   "cached": 21424,
+   "cached_pct": 89.4,
+   "e2e_s": 1.12,
+   "kv_after": 0.0,
+   "overlap_requests": 0,
+   "queries_delta": 23959,
+   "clean": true
+  }
+ ]
+}

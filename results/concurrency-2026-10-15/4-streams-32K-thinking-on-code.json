@@ -1,0 +1,32 @@
+{
+ "label": "",
+ "thinking": "on",
+ "chat_kwargs": null,
+ "url": "http://<head>",
+ "time": "2026-10-15 10:42:07",
+ "decode_tokens": 500,
+ "repeats": 1,
+ "rows": [
+  {
+   "context": 32000,
+   "temp": 0.6,
+   "task": "code",
+   "prompt_tokens": 32073,
+   "decode_tok_s": 26.08227810336906,
+   "all_decode_tok_s": [
+    26.08227810336906
+   ],
+   "ttft_s": 16.28229022026062,
+   "acceptance": {
+    "per_pos": [
+     0.6426735218508998,
+     0.3744644387317909
+    ],
+    "mean_accept_len": 2.0171379605826907,
+    "draft_accept_rate": 0.5085689802913453
+   },
+   "thinking": "on",
+   "time": "2026-10-15 10:42:07"
+  }
+ ]
+}
