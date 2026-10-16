@@ -19,6 +19,8 @@ import argparse, json, os, random, time, urllib.request, sys
 from urllib.parse import urlsplit
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Optional bearer key (vLLM --api-key); the b12x build also guards /metrics with it.
+AUTH = {"Authorization": "Bearer " + os.environ["API_KEY"]} if os.environ.get("API_KEY") else {}
 
 FILLER = ("def transform_record_{i}(row, opts):\n"
           "    out = {{}}\n"
@@ -30,7 +32,7 @@ FILLER = ("def transform_record_{i}(row, opts):\n"
 
 
 def counters(api):
-    txt = urllib.request.urlopen(api.rstrip('/') + '/metrics', timeout=10).read().decode()
+    txt = urllib.request.urlopen(urllib.request.Request(api.rstrip('/') + '/metrics', headers=AUTH), timeout=10).read().decode()
     out = {}
     for line in txt.splitlines():
         if line.startswith('vllm:prompt_tokens_by_source_total') and 'local_' in line:
@@ -51,7 +53,7 @@ def post(api, prompt, max_tokens):
                        "max_tokens": max_tokens, "temperature": 0}).encode()
     t0 = time.time()
     r = json.loads(urllib.request.urlopen(urllib.request.Request(
-        api.rstrip('/') + '/v1/chat/completions', body, {'Content-Type': 'application/json'}), timeout=1800).read())
+        api.rstrip('/') + '/v1/chat/completions', body, {'Content-Type': 'application/json', **AUTH}), timeout=1800).read())
     return time.time() - t0, r['usage']['prompt_tokens']
 
 

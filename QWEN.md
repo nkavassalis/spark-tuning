@@ -4,7 +4,8 @@
 > ([MIMO.md](MIMO.md)). Head-to-head: [QWEN_VS_MIMO.md](QWEN_VS_MIMO.md); Qwen won on speed and on quality.
 > The staged 2026-10-04 change below was dropped, never used. Switch models with `mimo/up.sh` / `mimo/down.sh --qwen`.
 > **2026-10-16:** nvidia's QAD quant `Qwen3.8-Flash-Next-FP4-Local` was measured against config C ([FP4LOCAL.md](FP4LOCAL.md)): same quality,
-> slower under concurrency and with thinking on, so config C stays in production.
+> a bit slower, but a bigger KV pool and zero-recompute warm cache hits. **It replaced config C in production**; config C is still
+> installed (`fp4local/down.sh --qwen`).
 
 Tuning notes, scripts and results for a dual **DGX Spark** (GB10) cluster serving
 `nvidia/Qwen3.8-Flash-Next-NVFP4` with vLLM (TP=2 + EP, MTP speculative decoding), deployed with

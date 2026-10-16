@@ -8,11 +8,13 @@
 # If API_KEY is set (cluster.env), the head serves with --api-key and every client must send it (benchmark lock-out).
 # LIVE=1: production mode for agents. No API key (like config C), and served as `qwen3.8-flash-next` too, so pi's existing
 #   `qwen` provider works unchanged.
-# Knobs (env): SPEC_TOKENS (4), MAX_SEQS (8), MAX_BATCHED (4096), GMU (0.8), PLE_MEMORY (disk), LIVE (0).
+# Knobs (env): SPEC_TOKENS (4), MAX_SEQS (8), MAX_BATCHED (4096), GMU (0.8), PLE_MEMORY (disk), LIVE (0),
+#   EP (0; 1 = --enable-expert-parallel, as config C runs).
 set -euo pipefail
 . "$(dirname "$0")/lib.sh"
 SPEC_TOKENS=${SPEC_TOKENS:-4}; MAX_SEQS=${MAX_SEQS:-8}; MAX_BATCHED=${MAX_BATCHED:-4096}
-GMU=${GMU:-0.8}; PLE_MEMORY=${PLE_MEMORY:-disk}; LIVE=${LIVE:-0}
+GMU=${GMU:-0.8}; PLE_MEMORY=${PLE_MEMORY:-disk}; LIVE=${LIVE:-0}; EP=${EP:-0}
+EPARG=""; [ "$EP" = 1 ] && EPARG="--enable-expert-parallel"
 NAMES=$SERVED_NAME
 if [ "$LIVE" = 1 ]; then NAMES="qwen3.8-flash-next $SERVED_NAME"; API_KEY=""; fi
 
@@ -65,7 +67,7 @@ exec vllm serve /root/.cache/huggingface/hub/models--nvidia--Qwen3.8-Flash-Next-
   --no-enable-flashinfer-autotune --mm-encoder-tp-mode data \\
   --reasoning-parser qwen3 --tool-call-parser qwen3_xml --enable-auto-tool-choice \\
   --compilation-config '{"pass_config":{"fuse_act_quant":true}}' \\
-  --gpu-memory-utilization $GMU \$KEY $2
+  --gpu-memory-utilization $GMU $EPARG \$KEY $2
 EOS
 }
 

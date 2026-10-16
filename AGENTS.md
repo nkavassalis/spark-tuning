@@ -11,9 +11,11 @@ Public notes, scripts and measured results from tuning LLM serving on a 2-node D
   ties or beats Qwen C on every task benchmark (not on corpus NLL), 2–3× slower decode (~11.5 vs ~25.5 engine steps/s). E224 is the better GLM
   (same speed, 100% long context). **Removed from both nodes** on 2026-10-13 (checkpoints, image, caches); `GLM_VARIANT=E224 glm/setup_nodes.sh && GLM_VARIANT=E224 glm/up.sh` rebuilds it (158 GB download).
 - nvidia Qwen3.8-Flash-Next-FP4-Local (QAD NVFP4 + MXFP8, community b12x vLLM build): `FP4LOCAL.md`. Benchmarked 2026-10-16 at TP=2:
-  ties or beats config C on every quality test, but 5–14% slower with thinking on and ~20% less aggregate at 3–6 streams, so
-  config C stayed live. Checkpoint + image still on both nodes: `LIVE=1 SPEC_TOKENS=2 fp4local/up.sh` makes it the live model.
-- Head-to-head: `QWEN_VS_MIMO.md` (and the three-way tables in `GLM.md`). **Current state: Qwen config C serving on :8000.**
+  ties or beats config C on every quality test; 5% slower with thinking on (K=2) and ~20% less aggregate at 3–6 streams, but a
+  ~30% bigger KV pool (5.5M tokens), 14–18 GiB free per node and zero-recompute warm cache hits. **The live model since 2026-10-16**
+  (user's call), at MTP K=2: `LIVE=1 SPEC_TOKENS=2 fp4local/up.sh`. No EP possible with this checkpoint (NVFP4-CSF).
+- Head-to-head: `QWEN_VS_MIMO.md` (and the three-way tables in `GLM.md`). **Current state: nvidia FP4-Local (K=2) serving on :8000 as
+  `qwen3.8-flash-next`; config C is installed and comes back with `fp4local/down.sh --qwen`.**
   MiMo is not installed; `mimo/setup_nodes.sh && mimo/up.sh` rebuilds it (~30 min, 178 GB download).
 Goal for all: fast, high-quality single-user code generation for coding agents, with no change that
 alters output quality unless it is measured.

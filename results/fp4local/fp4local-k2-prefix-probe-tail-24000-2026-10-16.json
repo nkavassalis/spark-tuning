@@ -1,0 +1,38 @@
+{
+ "api": "<head>",
+ "model": "qwen3.8-flash-next-fp4local",
+ "args": {
+  "api": "http://<head>:8000",
+  "tokens": 24000,
+  "load": 3,
+  "idle": 600,
+  "steps": "cold,warm",
+  "json": "results/fp4local/fp4local-k2-prefix-probe-tail-24000-2026-10-16.json"
+ },
+ "rows": [
+  {
+   "step": "cold (first sight)",
+   "prompt_tokens": 23959,
+   "recomputed": 23959,
+   "cached": 0,
+   "cached_pct": 0.0,
+   "e2e_s": 8.61,
+   "kv_after": 0.0,
+   "overlap_requests": 0,
+   "queries_delta": 23959,
+   "clean": true
+  },
+  {
+   "step": "warm (immediately again)",
+   "prompt_tokens": 23959,
+   "recomputed": 0,
+   "cached": 23959,
+   "cached_pct": 100.0,
+   "e2e_s": 0.24,
+   "kv_after": 0.0,
+   "overlap_requests": 0,
+   "queries_delta": 23959,
+   "clean": true
+  }
+ ]
+}

@@ -30,8 +30,11 @@ validated it on **one** Spark (TP=1). We ran it TP=2 across both Sparks so every
 the differences is significant. It is **not faster for how this cluster is used.** Single-stream thinking-off decode is even. With
 thinking on it's 5% slower at its best draft length (K=2) and 14% slower with nvidia's K=4. With 3–6 concurrent streams it delivers
 ~20% less total throughput at every K. Its real wins are elsewhere: a ~25% bigger KV pool, 10+ GiB more free memory per node,
-and much cheaper warm prefix-cache hits. **Decision (2026-10-16): config C stays live.** The user had asked to keep FP4-Local live
-only if both quality and speed held, and speed didn't under concurrency. Switching later is one command (see the end).
+and **zero-recompute warm prefix-cache hits** (config C rebuilds ~2.5K tokens on every hit). **Decision (2026-10-16): FP4-Local is
+the live model**, at MTP K=2 (fastest K with thinking on and under concurrency), otherwise nvidia's recipe. The user judged the
+bigger KV pool, the memory headroom and the cheap warm hits worth the slower raw speed. It's served as `qwen3.8-flash-next` with no
+API key, so pi needed no change. Expert parallelism can't be used with this checkpoint, and an 8192 prefill batch changed nothing
+(see "Tuning attempts"). `fp4local/down.sh --qwen` goes back to config C in ~11 min.
 
 ---
 
@@ -105,8 +108,30 @@ Code and edits: roughly even to +16%. Prose: −10 to −20%.
 
 **Warm prefix-cache hits are much cheaper.** In the same runs, time-to-first-token on a repeated (cached) 128K prompt was
 **0.22–0.26 s** against config C's **1.5–3.5 s** (TTFT columns of the same files). PI.md traced pi's per-turn pause to exactly
-this warm-hit recompute tail (~2.5K tokens on config C). Here first-token latency on a warm hit is 6–15× lower. The cause isn't
-isolated: the b12x build differs from config C's image in block size, cache mode and kernels.
+this warm-hit recompute tail (~2.5K tokens on config C). Here first-token latency on a warm hit is 6–15× lower; the next section
+measures why.
+
+### Why warm hits are free here: cache granularity on a hybrid model
+
+The model mixes attention layers (KV per token) with Gated DeltaNet layers (one fixed-size recurrent state per sequence). vLLM can
+only resume a cached prefix where it has a saved recurrent state, and in `mamba-cache-mode align` it saves one per cache block. On
+config C vLLM sizes the blocks itself: its boot log says *"Setting attention block size to **1648 tokens** to ensure that attention
+page size is >= mamba page size"*. So a hit reuses everything up to the last full 1,648-token block and recomputes the rest; that
+is the ~2.5K-token tail PI.md measured. The b12x recipe pins `--block-size 16` and stores the recurrent state its own way.
+
+Measured with the same probe and prompts as config C (`scripts/prefix_probe.py --steps cold,warm`, server's own
+`prompt_tokens_by_source` counters; `results/fp4local/fp4local-k2-prefix-probe-tail-{8000,24000,96000}-2026-10-16.json` vs
+`results/prefix-probe-tail-*-2026-10-15.json`):
+
+| prompt | config C recomputed on a warm hit | **FP4-Local recomputed** | FP4-Local warm request, end to end |
+|---|---|---|---|
+| 7,939 | 2,995 | **0** (100% cached) | 0.21 s |
+| 23,959 | 2,535 | **0** | 0.24 s |
+| 96,559 | 2,623 (9,215 on the first repeat) | **0** | 0.35 s |
+
+"0" is the server counter; vLLM may still recompute the final token internally to sample, but nothing measurable beyond that.
+For pi, which re-sends the whole history every turn, this removes a ~0.8 s fixed cost per turn on config C. Cold misses are
+unaffected (and ~10% slower here, see cold prefill above).
 
 ### Recipe bench (MiMo recipe `bench/mimobench.py`, temperature 0, thinking off, unique prefixes; run on the head)
 
@@ -178,9 +203,15 @@ Recipe bench aggregate (thinking off), tok/s:
 Reading it: each extra draft token costs FP4-Local ~2 steps/s (24.2 → 21.6 → 19.8 st/s for K=2/3/4). At K=2 its step rate is within
 5% of config C's (25.5), so per-step the two models cost about the same. With thinking off, code accepts enough drafts that K=4 wins;
 on reasoning text it doesn't, and K=2 is best. **Under concurrency no K closes the gap**: C3–C6 are 16–29% behind config C at
-every K. So it isn't the draft length. Candidates we didn't test: config C runs TP=2 **with expert parallelism** and
-`max-num-batched-tokens` 8192 (nvidia's recipe: no EP, 4096). Cold prefill at K=2: 2,517 / 2,723 / 2,728 / 2,672 tok/s, the same as K=4.
+every K. So it isn't the draft length (see "Tuning attempts" for EP and the prefill batch). Cold prefill at K=2: 2,517 / 2,723 / 2,728 / 2,672 tok/s, the same as K=4.
 KV pool: 5.11M (K=4), 5.31M (K=3), 5.49M (K=2) tokens.
+
+### Tuning attempts (K=2, both lossless)
+
+| Change | Result |
+|---|---|
+| `--enable-expert-parallel` (config C uses EP) | **Not possible.** Both ranks fail at startup with `NotImplementedError: NVFP4-CSF supports TP without EP/DP`. The checkpoint's compressed scale-factor format ("CSF", the reason it needs the b12x build) only supports plain TP. |
+| `max-num-batched-tokens` 4096 → 8192 (config C's value) | No change worth having: recipe bench C1/C3/C6 56.8 / 117.8 / 182.9 (4096: 56.5 / 115.5 / 186.9), thinking-on grid within ±5%, cold prefill +2–3% (2,594 / 2,813 / 2,787 / 2,729 tok/s). It costs 6% of the KV pool (5.18M vs 5.49M tokens). Kept 4096. Files: `results/fp4local/*k2-mb8k*`. |
 
 ---
 
@@ -218,7 +249,8 @@ Long context: mean prompt 102,393 tokens (same prompts and tokenizer as B/C).
 
 ```bash
 fp4local/setup_nodes.sh     # idempotent: 102 GB download + rsync to the worker, image pull
-fp4local/up.sh              # stops Qwen, ~12 min cold (~5 min warm); http://<head>:8000/v1, model qwen3.8-flash-next-fp4local
+LIVE=1 SPEC_TOKENS=2 fp4local/up.sh   # the live config (no key, served as qwen3.8-flash-next too)
+fp4local/up.sh              # benchmark mode: API_KEY lock-out; stops Qwen, ~12 min cold (~5 min warm); http://<head>:8000/v1, model qwen3.8-flash-next-fp4local
 fp4local/down.sh --qwen     # back to config C (~11 min)
 ```
 
@@ -230,7 +262,9 @@ Knobs: `SPEC_TOKENS` (default 4, nvidia's), `MAX_SEQS`, `MAX_BATCHED`, `GMU`, `P
 - One run per quality test. The A-vs-A2 rerun is the noise floor: 2–3 flips each way on HumanEval+/MBPP+.
 - TP=2 only, as asked. nvidia validated TP=1 on a single Spark; that wasn't run, so whether one Spark is enough for this
   workload is unmeasured.
-- nvidia's recipe was used as written for everything except TP and K. Not tried: PLE in memory (`PLE_MEMORY` knob), expert
-  parallelism, larger `max-num-batched-tokens` (config C uses 8192), `--performance-mode interactivity`.
+- nvidia's recipe was used as written for everything except TP and K (EP impossible, 8192 batch no gain, above). Not tried: PLE in
+  memory (`PLE_MEMORY` knob), `--performance-mode interactivity`.
+- Live since 2026-10-16 ~16:30 UTC with no Docker restart policy (same as config C): after a node reboot, run `LIVE=1 SPEC_TOKENS=2
+  fp4local/up.sh`. Multi-agent stall behaviour (QWEN.md) under the new server is not yet observed.
 - The b12x build is a community nightly, not upstream vLLM. Pinned by digest here; behaviour can change between nightlies.
 - Not exercised: vision input, 1M context, real pi agent sessions, multi-agent stall behaviour (QWEN.md).

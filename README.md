@@ -8,10 +8,10 @@ The cluster runs one model at a time. Each model has its own write-up:
 
 | Model | Deployment recipe | Write-up | Status |
 |---|---|---|---|
-| `nvidia/Qwen3.8-Flash-Next-NVFP4` (+ RadixArk FP8-dense), MTP K=2 | [MiaAI-Lab/Qwen3.8-Flash-Next-Dual-DGX-Sparks](https://github.com/MiaAI-Lab/Qwen3.8-Flash-Next-Dual-DGX-Sparks) | [QWEN.md](QWEN.md), [FP8DENSE.md](FP8DENSE.md) | **serving** (config C) |
+| `nvidia/Qwen3.8-Flash-Next-NVFP4` (+ RadixArk FP8-dense), MTP K=2 (config C) | [MiaAI-Lab/Qwen3.8-Flash-Next-Dual-DGX-Sparks](https://github.com/MiaAI-Lab/Qwen3.8-Flash-Next-Dual-DGX-Sparks) | [QWEN.md](QWEN.md), [FP8DENSE.md](FP8DENSE.md) | installed, **replaced** by FP4-Local on 2026-10-16 (`fp4local/down.sh --qwen` brings it back) |
 | `XiaomiMiMo/MiMo-V2.6-Flash-RL`, DFlash 7 | [tonyd2wild/MiMo-V2.6-Flash-DGX-Spark-Recipe](https://github.com/tonyd2wild/MiMo-V2.6-Flash-DGX-Spark-Recipe) | [MIMO.md](MIMO.md) | benchmarked, **removed from the nodes**; `mimo/setup_nodes.sh && mimo/up.sh` to bring it back |
 | `autotrust/GLM5.3-Flash-E192-DGX-Spark` (+ E224), NVFP4 MTP K=2 | stock vLLM 0.31.0 + `glm/` (after autotrust's [E224 two-Spark runbook](https://huggingface.co/autotrust/GLM5.3-Flash-E224-DGX-Spark/blob/main/DEPLOY-2X-DGX-SPARK.md)) | [GLM.md](GLM.md) | benchmarked 2026-10-13, **removed from the nodes**; `glm/setup_nodes.sh && glm/up.sh` to bring it back |
-| `nvidia/Qwen3.8-Flash-Next-FP4-Local` (QAD NVFP4 + MXFP8), MTP K=2–4 | community b12x vLLM (`eugr/spark-vllm-b12x`) + `fp4local/` | [FP4LOCAL.md](FP4LOCAL.md) | benchmarked 2026-10-16 at TP=2: as smart as config C, slower under concurrency; checkpoint still on the nodes, `fp4local/up.sh` |
+| `nvidia/Qwen3.8-Flash-Next-FP4-Local` (QAD NVFP4 + MXFP8), MTP K=2–4 | community b12x vLLM (`eugr/spark-vllm-b12x`) + `fp4local/` | [FP4LOCAL.md](FP4LOCAL.md) | **serving** since 2026-10-16 (TP=2, K=2): as smart as config C, a bit slower, bigger KV, free warm cache hits; `fp4local/down.sh --qwen` to go back |
 
 Head-to-head speed and quality on this cluster: **[QWEN_VS_MIMO.md](QWEN_VS_MIMO.md)**. Short version: for
 single-user coding Qwen config C is 1.3–2.7× faster and at least as accurate. MiMo is ahead only on multimodal input
