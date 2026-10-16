@@ -143,6 +143,10 @@ miss costs ~50 s of exclusive prefill. Staged there on 2026-10-15: pi `compactio
   lose the tail with `--prefix-match-unit` set (a small `--block-size` alone is the weaker bet, since the old build's
   `enable_partial_hash_hits` predicate only looks at the Mamba group). Never tried - it needs a restart of the server
   this session runs on.
+- **The pi status-line token speed is not a measurement.** `pi-token-speed` counts 1 token per streamed SSE chunk
+  (default `direct` strategy) while MTP delivers ~2-2.6 tokens per chunk, ignores tool-call args except `edit`/`write`,
+  and times from stream start (prefill included) - so it reads ~half the true rate, ~24-25 while a benchmark says 45+.
+  Measured table and fix (`countStrategy: "estimate"`) in `PI.md`. Never conclude anything about speed from it.
 - **Speed is NOT regressed** (checked 2026-10-15 against the recorded baselines: C1 62.4 vs 58.3, C6 218 vs 228, env
   byte-identical, same image, no throttling). Per-stream ~20 tok/s is 4 concurrent agents + thinking on; see the
   decomposition table in QWEN.md "Speed re-check" before re-investigating this.

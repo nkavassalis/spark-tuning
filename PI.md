@@ -84,6 +84,45 @@ Free behaviour changes, in rough order of value:
 - Batch instruction-file edits and do them at a session boundary, since the next resume pays one re-crunch.
 - Keep this host free of other heavy disk/IO jobs while decoding — the KV reuse that makes a warm turn ~0.8 s is unified memory.
 
+## Why the status-line token speed reads ~half the benchmark
+
+The user's status line comes from the **`pi-token-speed`** package (`packages: ["npm:pi-token-speed"]` in
+`~/.pi/agent/settings.json`). It is a UI element, not a measurement, and three things in it under-report, biggest first:
+
+1. **It counts one token per streamed delta.** `recordDelta()` calls `recordTokens(1)` in the default `direct` strategy
+   (`src/core/engine.ts`). But with MTP the server hands the client a whole *accepted draft block* per SSE chunk, so a
+   chunk carries ~the mean acceptance length, not one token. Measured on the live server: **0.38-0.55 chunks per
+   completion token** (1.8-2.6 tokens/chunk). The display therefore reads out roughly the engine's **step rate**
+   (~25/s), not its token rate - which is why it looks stuck around 24-25 no matter what the benchmark says.
+2. **Tool-call argument deltas are only counted for `edit` and `write`** (`TOKEN_GENERATION_TOOLS`,
+   `src/config/constants.ts:9`). `bash`, `read` and MCP tool arguments stream by uncounted while the clock keeps
+   running - a serious deflator for agent work, where much of the output is tool arguments.
+3. **The clock starts at stream start**, so prefill/TTFT sits in the denominator. Negligible on warm hits (0.03-0.28 s
+   measured), but a cold 50K prompt (~19 s at the live model's 2,668 tok/s) would swamp it.
+
+Measured three ways on the same requests (true = `usage.completion_tokens` / decode wall time; the other two are this
+extension's own arithmetic, replicated from its handlers):
+
+| stream | true tok/s | display, default `direct` | display, `estimate` |
+|---|---|---|---|
+| plain text, template default (thinking on) | 33.4 | 18.4 | 33.3 |
+| `bash` tool-call arguments | 52.6 | 17.8 | 48.9 |
+| `edit` tool-call arguments | 38.6 | 14.1 | 34.7 |
+
+Not the cause, despite being the obvious guess: **thinking tokens are counted** - the delta handlers cover
+`thinking_delta` as well as `text_delta` (`src/core/message-handlers.ts:33`), and this build streams reasoning as
+`delta.reasoning`.
+
+Fix for the live number: `countStrategy: "estimate"` in the `tokenSpeed` block of `~/.pi/agent/settings.json` (no such
+block exists today, so every setting is at its default). It matches the true rate within ~8% on all three rows above.
+`useProviderTokens: true` does **not** help the streaming figure: pi does send `stream_options.include_usage`, but
+vLLM emits usage only in the **final** chunk, so it can only snap the total at the end - which the extension already
+does via `reconcileTotal()` on message end.
+
+Corollary worth remembering: because the divisor is the acceptance length, **better speculative acceptance makes the
+display read worse** while the engine actually gets faster. For any speed question use
+`scripts/bench_decode.py`, which divides the server's own `usage.completion_tokens` by wall time.
+
 ## Provider config and model switching
 
 The local pi config (outside this repo) has a `qwen` provider at `<head>:8000/v1`, plus `mimo` at
