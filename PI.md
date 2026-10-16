@@ -131,6 +131,53 @@ Corollary worth remembering: because the divisor is the acceptance length, **bet
 display read worse** while the engine actually gets faster. For any speed question use
 `scripts/bench_decode.py`, which divides the server's own `usage.completion_tokens` by wall time.
 
+## Why restarting the client re-crunches the whole prompt, and what it costs
+
+The KV cache does **not** expire: 900 s of idle and three competing prompts of the same size class both left a cached
+prompt fully served (`results/prefix-probe-idle-1007.json`, `results/prefix-probe-2026-10-15.json`). The question is
+never "did it expire" but "did the prompt change, and where". The cache is **content-addressed from token 0**: a block
+is reusable only if every token before it is identical, because in causal attention the K/V of position *i* is a
+function of all preceding tokens (and the Gated DeltaNet state encodes the exact sequence it was computed from). A
+change near the front does not invalidate a little - it makes every cached entry after it *wrong*, so there is nothing
+left to reuse. Measured on the live server, one prompt of ~30K tokens, one token added (`scripts/prefix_probe.py
+--steps cold,warm,edit_early,edit_late`, new steps added for exactly this; `results/prefix-probe-edit-position-30000-2026-10-16.json`):
+
+| step | recomputed | cached | end to end |
+|---|---|---|---|
+| cold (first sight) | 29,959 | 0 | 11.08 s |
+| identical resend | **0** | 29,959 | **0.24 s** |
+| **1 token changed at the START** | **29,960** | 0 | **11.04 s** |
+| 1 token changed at the END | 5,386 | 24,576 | 2.28 s |
+
+**pi's system prompt is stable across restarts.** Read out of a real session file, it is assembled from fixed sections -
+`preamble` (169 chars), `tools` (339), `rules` (839), `docs` (1406), `addendum` (8,906), `cwd` (36), `project_context`
+(16,950) - with no date, no session id and no UUID anywhere in it. So a restart is normally a perfect hit, and pays a
+full prefill only when one of those sections changes: the injected `AGENTS.md`/`CLAUDE.md` (re-read at session start),
+the tool/skill set, the model, or the cwd. **Which is what happened today**: several commits edited this repo's
+`AGENTS.md` while sessions were live, so the first restart of each session after those edits re-read the file, diverged
+near token 0, and re-crunched the entire history. That cost is ours, not the cluster's.
+
+**The 4,096 floor.** An *identical* prompt resumes at the exact end (0 recompute) because vLLM publishes a partial tail
+entry for it. A *modified* prompt does not get that treatment: its hit floors to a 4,096-token boundary, so an append
+costs `(prompt mod 4096) + 4096` tokens - exact at both sizes measured (29,962 -> 1,290+4,096 = 5,386; 120,962 ->
+2,178+4,096 = 6,274). That is the per-turn cost of pi appending a turn: ~6K tokens on average, ~2.3 s at the live
+prefill rate. Why 4,096 is **untested**; it equals `--max-num-batched-tokens`, which makes it a candidate lever, nothing more.
+
+**Why a resume feels slower than it used to.** The live build prefills ~27% slower per token than config C (measured
+today: 11,959 tokens in 4.49 s = 2,664 tok/s, and 96,559 in 36.2 s = 2,668; config C was 3,640). A 180K-token resume is
+therefore ~68 s now against ~50 s on config C. Separately, a **server** restart wipes the KV cache outright - it lives
+in GPU memory - so the FP4-Local swap on 2026-10-16 made every session's next resume cold regardless of client.
+
+Mitigations, cheapest first: batch injected-file edits to session boundaries, since one edit is charged to every
+session that restarts afterwards; keep injected files short (this repo's `AGENTS.md` is ~17K chars and sits *ahead of
+the whole conversation*, so it is paid on every cold prefill); prefer continuing a session over restarting one; leave
+`compaction.reserveTokens` at 65,536 so a resume's prompt has a bound.
+
+Probe caveat learned the hard way: the probe's nonce is deterministic (`--seed 7`) so saved results can be re-measured,
+but that also means two agents probing concurrently **share prefixes** - one of my "cold" rows came back 74.5% cached
+because a parallel run had already cached the common filler. `--seed` now lets you isolate a measurement, and a cold
+row that finds anything cached says so out loud.
+
 ## Provider config and model switching
 
 The local pi config (outside this repo) has a `qwen` provider at `<head>:8000/v1`, plus `mimo` at

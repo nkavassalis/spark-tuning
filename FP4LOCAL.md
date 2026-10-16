@@ -170,6 +170,10 @@ Measured with the same probe and prompts as config C (`scripts/prefix_probe.py -
 | 96,559 | 2,623 (9,215 on the first repeat) | **0** | 0.35 s |
 
 "0" is the server counter; vLLM may still recompute the final token internally to sample, but nothing measurable beyond that.
+**Scope of that zero** (measured later the same day, see `PI.md`): it applies to a *byte-identical* repeat, which is what the
+published partial tail entry serves. A prompt that shares a long prefix but is not identical floors to a 4,096-token boundary -
+recompute = `(prompt mod 4096) + 4096`, exact at 30K (5,386) and 120K (6,274). So "resume at the exact prompt end" is true for
+repeats, not for appends.
 For pi, which re-sends the whole history every turn, this removes a ~0.8 s fixed cost per turn on config C. Cold misses are
 unaffected (and ~10% slower here, see cold prefill above).
 

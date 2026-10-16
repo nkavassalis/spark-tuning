@@ -82,25 +82,41 @@ def make_prompt(tokens, nonce):
     # (calibrated 2026-10-15: 923 units -> 55,329 prompt tokens on this checkpoint/chat template)
     return nonce + "\n" + "".join(FILLER.format(i=i) for i in range(n))
 
-
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--api", default=os.environ.get("API", "http://localhost:8000"))
     ap.add_argument("--tokens", type=int, default=24000, help="probe prompt size in tokens")
     ap.add_argument("--load", type=int, default=3, help="unique competing prompts for the 'load' step")
     ap.add_argument("--idle", type=int, default=600, help="seconds to sit unused for the 'idle' step")
-    ap.add_argument("--steps", default="cold,warm,load,idle")
+    ap.add_argument("--steps", default="cold,warm,load,idle",
+                    help="comma list: cold,warm,edit_early,edit_late,load,idle")
     ap.add_argument("--json", default="")
+    ap.add_argument("--seed", type=int, default=7,
+                    help="prompt nonce seed. Default 7 keeps prompts byte-identical across runs (so a saved "
+                         "result can be re-measured), but two agents probing at once then SHARE prefixes and a "
+                         "'cold' row can come back cached. Use a different value for an isolated cold measurement.")
     a = ap.parse_args()
     steps = a.steps.split(',')
-    random.seed(7)
+    random.seed(a.seed)
     probe = make_prompt(a.tokens, f"PROBE-{random.randint(10**8, 10**9-1)}: write 'ok'")
     rows = []
     print(f"probe prompt: {a.api} model={os.environ.get('MODEL','qwen3.8-flash-next')} target={a.tokens} tokens")
     if 'cold' in steps:
-        rows.append(run(a.api, 'cold (first sight)', probe, 8))
+        row = run(a.api, 'cold (first sight)', probe, 8)
+        rows.append(row)
+        if row["cached"] > 0:
+            print(f"  [not actually cold: {row['cached']:,} tokens were already cached - this prompt is shared "
+                  f"(deterministic nonce). Re-run with --seed <n> for a true cold measurement]")
     if 'warm' in steps:
         rows.append(run(a.api, 'warm (immediately again)', probe, 8))
+    # One token changed at the FRONT of the prompt: what a client restart does when an injected
+    # context file (AGENTS.md/CLAUDE.md) changed on disk, or the tool set/model changed. Everything
+    # downstream re-hashes, so nothing cached is usable.
+    if 'edit_early' in steps:
+        rows.append(run(a.api, '1 token changed at START', 'X ' + probe, 8))
+    # One token changed at the END: what appending a new turn does. Only the tail re-computes.
+    if 'edit_late' in steps:
+        rows.append(run(a.api, '1 token changed at END', probe + ' EDITED', 8))
     if 'load' in steps:
         for i in range(a.load):                       # same size class as the probe, nothing in common with it
             run(a.api, f'  competing prompt {i+1}', make_prompt(a.tokens, f"FILLER-{i}-{random.randint(10**8,10**9-1)}"), 8, quiet=True)
