@@ -210,8 +210,43 @@ KV pool: 5.11M (K=4), 5.31M (K=3), 5.49M (K=2) tokens.
 
 | Change | Result |
 |---|---|
-| `--enable-expert-parallel` (config C uses EP) | **Not possible.** Both ranks fail at startup with `NotImplementedError: NVFP4-CSF supports TP without EP/DP`. The checkpoint's compressed scale-factor format ("CSF", the reason it needs the b12x build) only supports plain TP. |
+| `--enable-expert-parallel` (config C uses EP) | **Not possible on this build.** Both ranks fail at startup with `NotImplementedError: NVFP4-CSF supports TP without EP/DP`. It's a software limitation in the b12x vLLM build, not the scale format; see "Why no expert parallelism" below. |
 | `max-num-batched-tokens` 4096 → 8192 (config C's value) | No change worth having: recipe bench C1/C3/C6 56.8 / 117.8 / 182.9 (4096: 56.5 / 115.5 / 186.9), thinking-on grid within ±5%, cold prefill +2–3% (2,594 / 2,813 / 2,787 / 2,729 tok/s). It costs 6% of the KV pool (5.18M vs 5.49M tokens). Kept 4096. Files: `results/fp4local/*k2-mb8k*`. |
+
+### Why no expert parallelism (it's the software, not the format)
+
+Read from the source in the pinned image (`eugr/spark-vllm-b12x@sha256:03a95654…`, vLLM `0.1.dev21830+g8244d1c44`), 2026-10-16.
+Two separate restrictions, neither inherent to the checkpoint:
+
+1. **The b12x MoE backend has no EP path at all**, compressed scales or not. In
+   `vllm/model_executor/layers/fused_moe/b12x.py`, `_supports_parallel_config()` is false whenever `use_ep`, `ep_size != 1`,
+   all2all kernels or EPLB are on, and `supports_expert_map()` returns false. The hybrid A4 prefill path
+   (`B12X_W4A16_A4_PREFILL`, set by nvidia's recipe) separately refuses DP/PCP/EP/sequence parallelism. So a plain
+   ModelOpt NVFP4 checkpoint run through these kernels couldn't use EP either: the all-to-all token dispatch EP needs isn't
+   wired into this backend yet.
+2. **The compressed-scale MoE method assumes every rank holds every expert.**
+   `vllm/model_executor/layers/quantization/nvfp4_csf.py` (`Nvfp4CsfMoEMethod`) raises the error above. It is built on
+   the no-DP/EP prepare/finalize path (`MoEPrepareAndFinalizeNoDPEPModular`), decodes a layer's scale planes for **all experts**
+   into one model-owned E4M3 scratch shared across layers, and prefetches the next layer's expansion on a side CUDA stream
+   while attention runs (`_prefetches_all_experts`: "prefetch matches the call's full-expert expansion workload"). It also
+   requires pipeline parallel 1 and no ubatching ("CSF shared scratch requires PP1 without ubatching"). Under EP each rank
+   would own a subset of experts, so this scratch/prefetch design would need rework.
+
+What the format itself allows: the scales are **lossless** and decode to ordinary E4M3 NVFP4 block scales at run time
+(`b12x.moe.fused_moe.expand_scales`). They are stored per expert matrix, and the loader already slices them per TP rank on
+32-channel boundaries (`nvfp4_csf_utils.prepare_nvfp4_csf_weights`, `tp_extent(..., 32)`). Splitting by expert instead is no
+harder. Nothing in the encoding ties it to TP-only serving.
+
+Routes to EP, if it's ever worth it:
+1. **A future b12x / vLLM build adds EP.** Retest with `EP=1 SPEC_TOKENS=2 fp4local/up.sh`; it fails within ~2 minutes if still unsupported.
+2. **Expand the scales offline** into a standard ModelOpt NVFP4 checkpoint and serve it with upstream kernels that support EP
+   (config C runs FlashInfer/CUTLASS NVFP4 with EP on this cluster). No conversion tool ships in this image (not found). It would
+   also need upstream support for the rest of the checkpoint (MXFP8 attention, the `qwen4_exp` model), which the model card says
+   hasn't landed. It would give back part of the size saving (expanded scales are 1 byte per 16 weights) and possibly the b12x
+   kernels' own speedups.
+
+Unmeasured: whether EP would actually close the ~20% gap at 3–6 streams. It's the main config difference from config C, but
+the gap's cause isn't proven.
 
 ---
 
