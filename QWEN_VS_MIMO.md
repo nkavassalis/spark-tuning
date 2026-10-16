@@ -7,6 +7,7 @@ the server. Each model runs its tested deployment:
 |---|---|---|
 | Weights | RadixArk NVFP4 experts + FP8-dense linears | XiaomiMiMo MXFP4 experts + fp8 attention |
 | Spec decode | MTP, K=2 | DFlash, 7 draft tokens |
+| Parallel layout | TP=2 **+ expert parallelism** | TP=2; EP not enabled by our files (the recipe's launch script wasn't checked) |
 | KV / context | fp8, GMU 0.835, 262K, max-num-seqs 8 | fp8, GMU 0.90, 300K, max-num-seqs 8 |
 | KV pool (boot log 2026-10-07) | 4.25M tokens (16.2× full 262K) | 2.05M tokens (6.8× full 300K) |
 | Server sampling defaults | vLLM defaults; thinking on by template default | temperature 1.0 / top_p 0.95 / rep-pen 1.05; thinking off |

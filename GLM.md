@@ -61,6 +61,7 @@ Serving config (same for both variants):
 | `--kv-cache-memory-bytes` | 20 GiB per node | a fixed KV pool instead of a GMU fraction. E192: 2,111,321 tokens, 8.05× a full 262K request. |
 | `--gpu-memory-utilization` | 0.80 | only the startup free-memory gate when the KV size is fixed |
 | `--max-model-len` / `--max-num-seqs` / `--max-num-batched-tokens` | 262144 / 8 / 8192 | same context and concurrency as Qwen config C; the model supports 1M |
+| Parallel layout | TP=2 only (no `--enable-expert-parallel`) | Qwen config C runs TP=2 **+ EP**, so the speed comparisons are also TP-only vs TP+EP. GLM with EP was never tried; the 2–3× decode gap is too large for layout alone. |
 | `--compilation-config` | `{"mode":0,"cudagraph_mode":"FULL_DECODE_ONLY"}` | **torch.compile off**, CUDA graphs for decode. A compile-time memory spike hung the head once (QWEN.md). |
 | `--no-enable-flashinfer-autotune` | | the runbook: autotune desyncs TP ranks across nodes |
 | `--reasoning-parser glm45 --tool-call-parser glm47 --enable-auto-tool-choice` | | from the card. Without them, reasoning lands in `content` and tool requests 400. |

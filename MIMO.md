@@ -88,7 +88,7 @@ All scripts read hosts from the untracked `cluster.env`; nothing site-specific i
 | Tool-call-cap proxy as a container on the head | `mimo/up.sh`, `mimo/toolcap/` | `node:22-alpine`, `--restart unless-stopped`, host network, `:8000`. One-line change to upstream (`upstream.diff`): bind address from `TOOLCAP_HOST` (upstream hardcodes loopback). |
 | Switch back | `mimo/down.sh [--qwen]` | `--qwen` relaunches the Qwen repo's `./start.sh --launch` |
 
-Serving config (recipe defaults): fp8 KV, GMU 0.90, `max-model-len` 300000, `max-num-seqs` 8, DFlash 7, marlin
+Serving config (recipe defaults): TP=2 (expert parallelism not enabled by anything in this repo; Qwen config C runs TP=2 + EP), fp8 KV, GMU 0.90, `max-model-len` 300000, `max-num-seqs` 8, DFlash 7, marlin
 MXFP4 MoE, DeepGEMM off, thinking off, `--no-async-scheduling`, `--generation-config auto`, rep-pen 1.05.
 Boot log: free memory at start 111.41/121.63 GiB; weights + non-torch 88.94 GiB; peak activation 7.19 GiB.
 After boot the OS reports ~6 GiB available on the head and ~9 GiB on the worker, about the same headroom as the

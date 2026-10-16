@@ -1,7 +1,8 @@
 # spark-tuning
 
 Tuning notes, scripts and measured results for a **dual DGX Spark (GB10)** cluster: two Sparks joined by
-their ConnectX-7 200G QSFP link and serving one model with vLLM tensor parallel 2. Everything here is measured
+their ConnectX-7 200G QSFP link and serving one model with vLLM across both nodes (TP=2, with or without expert parallelism; see
+[Parallel layout](#parallel-layout)). Everything here is measured
 on real hardware; numbers that were not measured are labelled as such.
 
 The cluster runs one model at a time. Each model has its own write-up:
@@ -34,6 +35,27 @@ and the 300K window.
 | `glm/` | GLM setup / switch scripts (`setup_nodes.sh`, `up.sh`, `down.sh`) and the in-container vLLM patch (`patch_vllm.py`) |
 | `fp4local/` | FP4-Local setup / switch scripts (`setup_nodes.sh`, `up.sh [LIVE=1]`, `down.sh [--qwen]`) |
 | `results/` | raw benchmark and eval outputs |
+
+## Parallel layout
+
+Every deployment here uses **TP=2**: tensor parallelism across the two Sparks. Attention and the other dense layers are split
+in half, one half per GPU, and recombined with an all-reduce over the CX7 link. **Expert parallelism (EP) is not a separate count**:
+in vLLM it is a flag on top of TP=2 (`--enable-expert-parallel`) that changes only the MoE expert layers.
+
+- **TP only:** every expert's matrices are split in half, so every token's expert work runs on both GPUs, followed by an all-reduce.
+- **TP + EP:** each GPU holds about half the experts whole, and tokens are exchanged between the GPUs to reach their routed experts
+  (config C: `--all2all-backend allgather_reducescatter`). vLLM names the workers `Worker_TP0_EP0` / `Worker_TP1_EP1`.
+
+| Deployment | Layout | Notes |
+|---|---|---|
+| Qwen config C (and configs A/B before it) | **TP=2 + EP** | `configs/running-vllm-args.txt` |
+| MiMo-V2.6-Flash | TP=2; EP not enabled by anything in this repo | the recipe's own launch script isn't vendored here, so not verified |
+| GLM-5.3-Flash E192/E224 | TP=2 only | never tried with EP |
+| nvidia FP4-Local (**serving**) | TP=2 only | EP refused by the b12x build ([FP4LOCAL.md](FP4LOCAL.md#why-no-expert-parallelism-its-the-software-not-the-format)) |
+
+So cross-model speed comparisons against config C also compare layouts. This matters most under concurrency: FP4-Local's
+~20% lower aggregate at 3–6 streams is the main gap, and EP is the main config difference (cause not proven). GLM's 2–3× decode gap
+is far too large for layout alone to explain.
 
 ## Setup
 
