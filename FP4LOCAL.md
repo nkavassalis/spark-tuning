@@ -112,13 +112,34 @@ Code and edits: roughly even to +16%. Prose: −10 to −20%.
 this warm-hit recompute tail (~2.5K tokens on config C). Here first-token latency on a warm hit is 6–15× lower; the next section
 measures why.
 
-### Why warm hits are free here: cache granularity on a hybrid model
+### Why warm hits are free here: prefix-match granularity, not block size
 
-The model mixes attention layers (KV per token) with Gated DeltaNet layers (one fixed-size recurrent state per sequence). vLLM can
-only resume a cached prefix where it has a saved recurrent state, and in `mamba-cache-mode align` it saves one per cache block. On
-config C vLLM sizes the blocks itself: its boot log says *"Setting attention block size to **1648 tokens** to ensure that attention
-page size is >= mamba page size"*. So a hit reuses everything up to the last full 1,648-token block and recomputes the rest; that
-is the ~2.5K-token tail PI.md measured. The b12x recipe pins `--block-size 16` and stores the recurrent state its own way.
+*(Corrected 2026-10-16. An earlier version said FP4-Local uses 16-token cache blocks; it doesn't.)*
+
+The model mixes attention layers (KV per token) with Gated DeltaNet layers (one fixed-size recurrent state per sequence). vLLM
+pads the attention page up to the recurrent-state page, so both deployments run **big physical blocks**:
+
+| | config C | FP4-Local |
+|---|---|---|
+| Physical block (boot log: "Setting attention block size to … tokens to ensure that attention page size is >= mamba page size") | **1,648** tokens | **2,832** tokens (the recipe's `--block-size 16` is overridden for the pages) |
+| Prefix-cache hit granularity (`prefix_match_unit` / `hash_block_size`) | 1,648 (no block size or match unit set, so it defaults to the block) | fine (the recipe's `--block-size 16` keeps it small) |
+| Where a warm hit can resume | last full block, minus one more block for MTP lookahead | the exact prompt end |
+
+Read from the source of both images (`vllm/v1/core/kv_cache_coordinator.py`, `single_type_kv_cache_manager.py`,
+`config/cache.py`). Both builds have the same fine-grained mode: `resolve_kv_cache_block_sizes` sets the hash granularity to
+`--prefix-match-unit` if given, else the GCD of the cache groups' block sizes, and `enable_partial_hash_hits` turns on only when that
+is smaller than the physical block (Mamba `align` mode, no context parallelism). Under it, vLLM publishes partial-block cache entries
+and a saved recurrent state at each prompt's end (`_cache_partial_tail_block`), so a repeat resumes at the end of the prompt.
+Without it, hits floor to whole blocks, and under MTP/EAGLE the lookup backs off one more alignment unit
+(`reachable_hit_positions`).
+
+That reproduces config C's measured tails exactly (remainder + one 1,648-token block): 7,939 = 4 blocks + 1,347 → **2,995**;
+23,959 = 14 + 887 → **2,535**; 96,559 = 58 + 975 → **2,623**. FP4-Local recomputed **0** at all three sizes. FP4-Local's resolved
+hash granularity isn't printed in its log, so "fine" above is inferred from the flag, the code and the measured zero.
+
+**Implication (untested):** this is configuration, not something only the b12x build can do. Config C's image has the same
+`--prefix-match-unit` flag and partial-hit code, so config C would likely get zero-recompute warm hits with `--prefix-match-unit 16`
+(or a small `--block-size`). That has not been tried.
 
 Measured with the same probe and prompts as config C (`scripts/prefix_probe.py --steps cold,warm`, server's own
 `prompt_tokens_by_source` counters; `results/fp4local/fp4local-k2-prefix-probe-tail-{8000,24000,96000}-2026-10-16.json` vs

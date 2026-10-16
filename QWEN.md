@@ -310,9 +310,10 @@ model change, thinking-level change, tool/skill set changes, and compaction. All
 structural events, which is also why the misses cluster at odd times rather than continuously.
 
 **Why config C had that tail, and why the live model does not.** `FP4LOCAL.md` traced the ~2.5-3K to the hybrid
-model's recurrent-state cache: a hit can only resume where a saved mamba state exists, and in `mamba-cache-mode align`
-those are saved once per ~1,648-token block, so everything past the last full block is recomputed. nvidia's FP4-Local
-(block size 16, same probe) recomputes **0**. Config C is no longer the live model (see the status note at the top).
+model's prefix-match granularity: with no block size or `--prefix-match-unit` set, config C's hits land only on its 1,648-token
+physical blocks (minus one block for MTP lookahead), so remainder + one block is recomputed. nvidia's recipe sets `--block-size 16`,
+which keeps the match granularity fine and turns on vLLM's partial-hit mode, so FP4-Local (same probe) recomputes **0**. Config C would
+likely get the same with `--prefix-match-unit 16` (untested). Config C is no longer the live model (see the status note at the top).
 
 **The per-turn cost of a warm hit is roughly constant, not proportional** (`scripts/prefix_probe.py --steps cold,warm`,
 3 sizes, `results/prefix-probe-tail-{8000,24000,96000}-2026-10-15.json`): in steady state the recomputed tail is
