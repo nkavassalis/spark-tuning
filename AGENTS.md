@@ -124,12 +124,19 @@ miss costs ~50 s of exclusive prefill. Staged there on 2026-10-15: pi `compactio
 - Dates in docs: YYYY-MM-DD. New experiments get a section in the model's .md plus a result file.
 
 ## Known issues / TODOs
-- **Qwen stalls with 3-4 concurrent agents** (high load, no tokens, ~10-50 s episodes). Cause not proven. Captured
-  episodes (2026-10-15) show `gen_delta~0` with KV creeping and RoCE at 1.3-1.6 GB/s and **zero** memory pressure
-  (PSI 0.00, swapout 0), so reclaim is ruled out for those; leading explanation is admission/prefill of huge
-  mostly-cached prompts (pi resends the whole history: p50 ~54K, max ~172K tokens). See QWEN.md "Multi-agent stalls".
-  Async scheduling is confirmed ON with MTP (nothing disables it); turning it off is the cheap A/B, and both that and
-  GMU 0.80 need a restart.
+- **Multi-agent stalls (config C, 2026-10-15): mechanism proven.** A captured 50 s freeze was one request
+  re-prefilling **182,012 tokens** at 3,640 tok/s: GPU 100% SM on compute, no preemption, queue empty, PSI 0.00
+  (reclaim ruled out), RoCE carrying NCCL only. Driver: pi re-sends whole histories (p50 ~54K, max ~172K tokens), so a
+  prefix divergence re-crunches everything, and config C's hybrid mamba recurrent-state cache granularity also
+  re-crunches ~2.5-3K tokens on every warm hit (`FP4LOCAL.md` explains the mechanism). The switch to FP4-Local removed
+  the recurring cost - warm hits now recompute **0** (independently re-measured 2026-10-16: 96,559-token prompt, 0
+  recomputed, 0.35 s end to end, `results/fp4local/fp4local-k2-mycheck-prefix-96000-2026-10-16.json`).
+  **Residual risk:** a genuinely *cold* prompt is now ~36% slower per token (2,668 vs 3,640 tok/s), so a 180K cold miss
+  would monopolise the engine ~68 s instead of 50 s. Client-side mitigation staged (pi `compaction.reserveTokens`
+  65536, see `PI.md`). The 2026-10-15 A/B plan (batched-tokens 4096 + `--long-prefill-token-threshold` + GMU 0.80) is
+  **retired**: FP4-Local already runs 4096/0.8 and `FP4LOCAL.md` shows 8192 gains nothing. `--long-prefill-token-threshold`
+  is untried on both models and is the only remaining server lever if giant-cold-prompt stalls show up.
+  Async scheduling stays ON - demoted to untested hypothesis, no longer needed.
 - **Speed is NOT regressed** (checked 2026-10-15 against the recorded baselines: C1 62.4 vs 58.3, C6 218 vs 228, env
   byte-identical, same image, no throttling). Per-stream ~20 tok/s is 4 concurrent agents + thinking on; see the
   decomposition table in QWEN.md "Speed re-check" before re-investigating this.

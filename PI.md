@@ -42,6 +42,25 @@ state — 9,215 tokens on a 96K prompt on the first warm pass, 2,623 on the next
 costs a little extra; from the turn after that, the tail is flat. Earlier drafts of this doc quoted the 9,215 figure
 as the steady-state cost; corrected 2026-10-15.
 
+## What changed when nvidia FP4-Local became the live model (2026-10-16)
+
+The measurements above are **config C** (the deployment that was live during the investigation). The cluster now serves
+FP4-Local K=2 (`FP4LOCAL.md`), which changes the balance for everything in this doc:
+
+| | config C | FP4-Local (live) |
+|---|---|---|
+| warm hit, 96K prompt | 2,623 tokens recomputed, 3.92 s | **0 recomputed, 0.35 s** (independently re-measured, `results/fp4local/fp4local-k2-mycheck-prefix-96000-2026-10-16.json`) |
+| cold prefill, 96K prompt | 26.5 s (3,640 tok/s) | 36.2 s (2,668 tok/s) — **~36% slower per token** |
+| recurring cause of the stalls | every hit re-crunched ~2.5-3K tokens; divergence re-crunched all 182K | hits are free; only genuine divergence costs |
+
+Practical consequences for the client, in order:
+- The dominant stall driver is gone: the recurring re-crunch was the mamba state granularity that FP4-Local doesn't have.
+- **Misses got more expensive, not cheaper.** A 180K-token cold prompt now monopolises the engine for ~68 s rather than
+  ~50 s. So "don't create a giant cold prompt" matters *more* on the live model: don't resume a huge session across a
+  restart, don't change model/thinking/tools on a long session, and keep the compaction staging below.
+- The staging is still the right client change: it caps how large a history (and therefore a miss) can get, and
+  compaction itself rewrites history, so it should happen at a natural break rather than at 246K.
+
 ## Tuning the client (no server restart needed)
 
 Staged on 2026-10-15 in `~/.pi/agent/settings.json` (backup `settings.json.bak-2026-10-15`):
@@ -80,3 +99,6 @@ answers. Qwen's template defaults to thinking **on**, which is the slower path a
   server-side histograms, not from their session logs.
 - Whether a *resume* costs a full re-crunch in practice is inferred from the code path plus the observed miss sizes,
   not measured end to end.
+- The FP4-Local figures in this doc: the warm-hit zero is my own re-measurement of what `FP4LOCAL.md` already
+  reported (single run each); the 36.2 s / 2,668 tok/s cold number is mine, single run, 96K prompt. No repeat spread,
+  and nothing else was on the server at the time.

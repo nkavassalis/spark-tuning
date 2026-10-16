@@ -309,6 +309,11 @@ start/resume** (the file is re-read then, so an edited `AGENTS.md` costs exactly
 model change, thinking-level change, tool/skill set changes, and compaction. All of those are session-boundary or
 structural events, which is also why the misses cluster at odd times rather than continuously.
 
+**Why config C had that tail, and why the live model does not.** `FP4LOCAL.md` traced the ~2.5-3K to the hybrid
+model's recurrent-state cache: a hit can only resume where a saved mamba state exists, and in `mamba-cache-mode align`
+those are saved once per ~1,648-token block, so everything past the last full block is recomputed. nvidia's FP4-Local
+(block size 16, same probe) recomputes **0**. Config C is no longer the live model (see the status note at the top).
+
 **The per-turn cost of a warm hit is roughly constant, not proportional** (`scripts/prefix_probe.py --steps cold,warm`,
 3 sizes, `results/prefix-probe-tail-{8000,24000,96000}-2026-10-15.json`): in steady state the recomputed tail is
 2,535 of 23,959 at 24K (89.4% hit) and 2,623 of 96,559 at 96K (97.3% hit) — i.e. ~2.5-3K tokens, about 0.8 s, at any
