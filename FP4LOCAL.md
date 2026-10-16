@@ -137,6 +137,24 @@ That reproduces config C's measured tails exactly (remainder + one 1,648-token b
 23,959 = 14 + 887 → **2,535**; 96,559 = 58 + 975 → **2,623**. FP4-Local recomputed **0** at all three sizes. FP4-Local's resolved
 hash granularity isn't printed in its log, so "fine" above is inferred from the flag, the code and the measured zero.
 
+**One build-level asymmetry behind that configuration** (checked line by line, 2026-10-16; config C image
+`vllm 0.1.dev20073+g8e685d198`, this image `0.1.dev21830+g8244d1c44`). Both builds have the fine-grained mode, but they
+*enable* it differently in `v1/core/kv_cache_coordinator.py`:
+
+- old: `enable_partial_hash_hits = dcp_world_size == 1 and has_partial_mamba_group`, and that predicate requires a
+  **Mamba** group with `block_size > hash_block_size`.
+- this build: `allow_partial_hash_hits and (has_partial_mamba_group or has_partial_attention_group)` — the new route
+  accepts a `FullAttentionManager`/`SlidingWindowManager` with `block_size > hash_block_size and
+  supports_fine_grained_hash_lookup`. It also reads `num_prefill_checkpoint_blocks > 1` and splits
+  `lookup_alignment_tokens` from `state_materialization_alignment_tokens`, keeping both the fine and the coarse
+  recurrent states so a missing fine state falls back instead of missing.
+
+That matters for the implication below: the recipe passes no `--prefix-match-unit`, so the fine hash granularity comes
+from the small requested block size while the attention pages are grown to 2,832 — a shape the **attention** route
+accepts and the mamba-only route may not (if `--block-size 16` applies to the mamba group, then `mamba.block_size ==
+hash_block_size` and the old predicate stays false). So config C should get free hits with **`--prefix-match-unit` set
+explicitly**; `--block-size 16` alone is the weaker bet on the old image. Neither has been tried.
+
 **Implication (untested):** this is configuration, not something only the b12x build can do. Config C's image has the same
 `--prefix-match-unit` flag and partial-hit code, so config C would likely get zero-recompute warm hits with `--prefix-match-unit 16`
 (or a small `--block-size`). That has not been tried.

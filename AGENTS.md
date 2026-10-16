@@ -138,6 +138,11 @@ miss costs ~50 s of exclusive prefill. Staged there on 2026-10-15: pi `compactio
   **retired**: FP4-Local already runs 4096/0.8 and `FP4LOCAL.md` shows 8192 gains nothing. `--long-prefill-token-threshold`
   is untried on both models and is the only remaining server lever if giant-cold-prompt stalls show up.
   Async scheduling stays ON - demoted to untested hypothesis, no longer needed.
+- **Warm hits are free on FP4-Local because of prefix-match granularity, not block size** (`FP4LOCAL.md`); config C's
+  ~2.5-3K tail is exactly `(prompt mod 1648) + 1648`, i.e. no fine hits at all. **Untested**: config C would probably
+  lose the tail with `--prefix-match-unit` set (a small `--block-size` alone is the weaker bet, since the old build's
+  `enable_partial_hash_hits` predicate only looks at the Mamba group). Never tried - it needs a restart of the server
+  this session runs on.
 - **Speed is NOT regressed** (checked 2026-10-15 against the recorded baselines: C1 62.4 vs 58.3, C6 218 vs 228, env
   byte-identical, same image, no throttling). Per-stream ~20 tok/s is 4 concurrent agents + thinking on; see the
   decomposition table in QWEN.md "Speed re-check" before re-investigating this.
