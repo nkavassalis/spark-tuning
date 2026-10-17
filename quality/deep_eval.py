@@ -75,6 +75,7 @@ NOTHINK_MAX_TOKENS = int(os.environ.get("NOTHINK_MAX_TOKENS") or 0)
 
 
 def think_chat(task_id, content, max_tokens):
+    t0 = time.time()
     r = post("/v1/chat/completions", {
         "model": MODEL, "messages": [{"role": "user", "content": content}],
         **THINK_SAMPLING, "max_tokens": max_tokens,
@@ -82,7 +83,8 @@ def think_chat(task_id, content, max_tokens):
     c = r["choices"][0]; m = c["message"]
     return {"task_id": task_id, "content": m.get("content") or "",
             "reasoning_chars": len(m.get("reasoning_content") or m.get("reasoning") or ""),
-            "completion_tokens": r["usage"]["completion_tokens"], "finish": c.get("finish_reason")}
+            "completion_tokens": r["usage"]["completion_tokens"], "finish": c.get("finish_reason"),
+            "elapsed_s": round(time.time() - t0, 2)}   # wall clock per request; time-to-solve only at CONCURRENCY=1
 
 
 def last_code_block(text):
@@ -107,7 +109,7 @@ def cmd_gen_think(a):
         def fn(t):
             rec = think_chat(t["task_id"], LCB_PROMPT.format(q=t["question"]), a.max_tokens)
             rec["code"] = last_code_block(rec["content"]); return rec
-    resumable_map(fn, items, a.out, CONC)
+    resumable_map(fn, items[::a.stride], a.out, CONC)
 
 
 # ------------------------------------------------------------------ LiveCodeBench
@@ -291,6 +293,7 @@ def main():
     s.add_argument("--lengths", type=int, nargs="+", default=[64000, 128000]); s.add_argument("--per-length", type=int, default=24)
     s = sp.add_parser("gen-think"); s.add_argument("--task", choices=["humaneval", "lcb"], required=True)
     s.add_argument("--data"); s.add_argument("--out", required=True); s.add_argument("--max-tokens", type=int, default=16384)
+    s.add_argument("--stride", type=int, default=1, help="every Nth problem only (time-to-solve subsets)")
     s = sp.add_parser("lcb-exec"); s.add_argument("--data", required=True); s.add_argument("--gen", required=True)
     s = sp.add_parser("gen-longctx"); s.add_argument("--data", required=True); s.add_argument("--out", required=True)
     s = sp.add_parser("compare"); s.add_argument("files", nargs="+")

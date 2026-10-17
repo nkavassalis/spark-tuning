@@ -1,0 +1,38 @@
+{
+ "api": "<head>",
+ "model": "glm53-flash-fp4local",
+ "args": {
+  "api": "http://<head>:8000",
+  "tokens": 96000,
+  "load": 3,
+  "idle": 600,
+  "steps": "cold,warm",
+  "json": "results/glmfp4/glmfp4-k5-prefix-probe-tail-96000-2026-10-17.json"
+ },
+ "rows": [
+  {
+   "step": "cold (first sight)",
+   "prompt_tokens": 86154,
+   "recomputed": 69770,
+   "cached": 16384,
+   "cached_pct": 19.0,
+   "e2e_s": 33.09,
+   "kv_after": 0.0,
+   "overlap_requests": 0,
+   "queries_delta": 86154,
+   "clean": true
+  },
+  {
+   "step": "warm (immediately again)",
+   "prompt_tokens": 86154,
+   "recomputed": 0,
+   "cached": 86154,
+   "cached_pct": 100.0,
+   "e2e_s": 0.48,
+   "kv_after": 0.0,
+   "overlap_requests": 0,
+   "queries_delta": 86154,
+   "clean": true
+  }
+ ]
+}

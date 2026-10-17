@@ -1,0 +1,22 @@
+{
+ "omitted": {
+  "completion_tokens": 224,
+  "reasoning_chars": 75,
+  "prompt_tokens": 52
+ },
+ "low": {
+  "completion_tokens": 154,
+  "reasoning_chars": 0,
+  "prompt_tokens": 52
+ },
+ "high": {
+  "completion_tokens": 229,
+  "reasoning_chars": 99,
+  "prompt_tokens": 52
+ },
+ "max": {
+  "completion_tokens": 3834,
+  "reasoning_chars": 11832,
+  "prompt_tokens": 52
+ }
+}

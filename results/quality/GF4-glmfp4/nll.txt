@@ -1,0 +1,1 @@
+176,964 tokens, mean NLL 0.26099 nats, ppl 1.2982 -> results/GF4-glmfp4/nll.jsonl
