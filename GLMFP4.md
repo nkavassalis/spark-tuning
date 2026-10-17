@@ -37,7 +37,7 @@ a time, it took 18.5 s per problem against Qwen's 40.4 s and solved 36 of 41 to 
 thinks ~2,200. **At the template default (effort max) it is 2.5× slower than Qwen**: 99 s per problem, with no more solved. On hard
 problems both mostly run out of the 16K budget, and GLM at high solved 2 of 10 to Qwen's 1 in 10% more wall clock.
 
-It stays installed but isn't serving; the live model is unchanged (Qwen FP4-Local, K=2).
+**Removed from both nodes on 2026-10-17** after the tests (`glmfp4/setup_nodes.sh` re-downloads it, 166 GiB); the live model is unchanged (Qwen FP4-Local, K=2).
 
 ---
 
@@ -274,7 +274,7 @@ b12x kernels), but we didn't confirm it: two identical explicit-high requests we
 
 ```bash
 glmfp4/setup_nodes.sh               # idempotent: 166 GiB download + rsync to the worker, image pull
-SPEC_TOKENS=3 DEFAULT_EFFORT=high glmfp4/up.sh   # stops Qwen; API_KEY lock-out if set; ~11 min cold, ~5 min warm
+SPEC_TOKENS=3 DEFAULT_EFFORT=high glmfp4/up.sh   # needs setup_nodes.sh first (removed 2026-10-17); stops Qwen; API_KEY lock-out if set; ~11 min cold, ~5 min warm
                                     # http://<head>:8000/v1, model glm53-flash-fp4local
 glmfp4/down.sh --fp4local           # back to the live Qwen FP4-Local (LIVE=1 SPEC_TOKENS=2 fp4local/up.sh)
 glmfp4/down.sh --qwen               # or back to config C
@@ -285,7 +285,7 @@ Knobs: `SPEC_TOKENS` (default 5, nvidia's; **use 3**), `DRAFT_MOE` (`humming`), 
 
 On the nodes: checkpoint in the HF cache (`models--nvidia--GLM-5.3-Flash-FP4-Local` + the shared `hub/blobs/` store, 166 GiB per
 node), caches in `~/glmfp4-cache` (root-owned files from the container; delete with a privileged container as in GLM.md).
-**Still installed on both nodes after this test** (head: 343 GB free).
+**Removed from both nodes on 2026-10-17**: only the 44 GLM-only blobs (165 GiB) were deleted from the shared blob store, no other model's links broke, and the b12x image stays because Qwen FP4-Local uses it. Head disk afterwards: 508 GB free.
 
 ## Caveats / not measured
 

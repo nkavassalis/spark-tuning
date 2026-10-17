@@ -13,7 +13,7 @@ The cluster runs one model at a time. Each model has its own write-up:
 | `XiaomiMiMo/MiMo-V2.6-Flash-RL`, DFlash 7 | [tonyd2wild/MiMo-V2.6-Flash-DGX-Spark-Recipe](https://github.com/tonyd2wild/MiMo-V2.6-Flash-DGX-Spark-Recipe) | [MIMO.md](MIMO.md) | benchmarked, **removed from the nodes**; `mimo/setup_nodes.sh && mimo/up.sh` to bring it back |
 | `autotrust/GLM5.3-Flash-E192-DGX-Spark` (+ E224), NVFP4 MTP K=2 | stock vLLM 0.31.0 + `glm/` (after autotrust's [E224 two-Spark runbook](https://huggingface.co/autotrust/GLM5.3-Flash-E224-DGX-Spark/blob/main/DEPLOY-2X-DGX-SPARK.md)) | [GLM.md](GLM.md) | benchmarked 2026-10-13, **removed from the nodes**; `glm/setup_nodes.sh && glm/up.sh` to bring it back |
 | `nvidia/Qwen3.8-Flash-Next-FP4-Local` (QAD NVFP4 + MXFP8), MTP K=2–4 | community b12x vLLM (`eugr/spark-vllm-b12x`) + `fp4local/` | [FP4LOCAL.md](FP4LOCAL.md) | **serving** since 2026-10-16 (TP=2, K=2): as smart as config C, a bit slower, bigger KV, free warm cache hits; `fp4local/down.sh --qwen` to go back |
-| `nvidia/GLM-5.3-Flash-FP4-Local` (QAD NVFP4 + MXFP8, all 288 experts), MTP K=3 | community b12x vLLM + `glmfp4/` (nvidia's 2-Spark recipe, text only) | [GLMFP4.md](GLMFP4.md) | benchmarked 2026-10-17, **installed, not serving**: best LiveCodeBench here (55%), ties elsewhere, ~35–40% slower decode than Qwen FP4-Local; `glmfp4/up.sh` / `glmfp4/down.sh --fp4local` |
+| `nvidia/GLM-5.3-Flash-FP4-Local` (QAD NVFP4 + MXFP8, all 288 experts), MTP K=3 | community b12x vLLM + `glmfp4/` (nvidia's 2-Spark recipe, text only) | [GLMFP4.md](GLMFP4.md) | benchmarked 2026-10-17, **removed from the nodes**: best LiveCodeBench here (55%), ties elsewhere, ~35–40% slower decode than Qwen FP4-Local; `glmfp4/setup_nodes.sh && DEFAULT_EFFORT=high SPEC_TOKENS=3 glmfp4/up.sh` to bring it back |
 
 Head-to-head speed and quality on this cluster: **[QWEN_VS_MIMO.md](QWEN_VS_MIMO.md)**. Short version: for
 single-user coding Qwen config C is 1.3–2.7× faster and at least as accurate. MiMo is ahead only on multimodal input
@@ -79,7 +79,7 @@ mimo/up.sh               # stop Qwen, start MiMo + tool-call-cap proxy (~11-15 m
 mimo/down.sh --qwen      # stop MiMo, relaunch Qwen (~11 min)
 GLM_VARIANT=E224 glm/setup_nodes.sh && GLM_VARIANT=E224 glm/up.sh   # GLM-5.3-Flash (not installed now); glm/down.sh --qwen to go back
 fp4local/up.sh               # nvidia FP4-Local (installed); LIVE=1 serves it as qwen3.8-flash-next with no key; fp4local/down.sh --qwen
-SPEC_TOKENS=3 glmfp4/up.sh   # nvidia GLM FP4-Local (installed); glmfp4/down.sh --fp4local goes back to the live Qwen
+glmfp4/setup_nodes.sh && DEFAULT_EFFORT=high SPEC_TOKENS=3 glmfp4/up.sh   # nvidia GLM FP4-Local (not installed now); glmfp4/down.sh --fp4local
 
 MiMo is **not installed** on the nodes right now (removed 2026-10-07); `setup_nodes.sh` rebuilds it from scratch.
 ```
