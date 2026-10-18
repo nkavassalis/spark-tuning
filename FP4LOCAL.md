@@ -16,6 +16,7 @@ validated it on **one** Spark (TP=1). We ran it TP=2 across both Sparks so every
 |---|---|---|---|
 | HumanEval+ / MBPP+ / GSM8K, thinking off | 93.3 / 79.9 / 96.4 | **94.5 / 79.9 / 96.4** | tie (p ≥ 0.73) |
 | HumanEval+ / LiveCodeBench, thinking on | 92.7 / 41.2 | **92.7 / 46.2** | tie / FP4-Local ahead, not significant (p=0.125) |
+| Same at pi's `reasoning_effort` `medium` / `low` (2026-10-18; above at `xhigh`, the template default) | — | **95.7 / 43.8**, **94.5 / 47.5** | tie with `xhigh` (every p ≥ 0.125); ~2.7–3× faster on easy problems |
 | Long context 64K/128K | 95.1% | **97.2%** | tie (p=0.25) |
 | Corpus NLL vs BF16-dense (nats/token) | +0.0030 | **+0.0023** | FP4-Local slightly closer to BF16 |
 | Decode, thinking off, 6-cell mean (tok/s) | 67.0 | **68.7** (K=4) | tie (+2%) |
@@ -324,6 +325,59 @@ Long context: mean prompt 102,393 tokens (same prompts and tokenizer as B/C).
 
 ---
 
+## Reasoning effort: `low` / `medium` / `xhigh`, and thinking off (2026-10-18)
+
+**Question:** every thinking-on number above was taken without sending `reasoning_effort`. What does the template do with it,
+what does pi send, and which level should agents use?
+
+The chat template (thinking on only) accepts `chat_template_kwargs.reasoning_effort` = `low`, `medium` or `xhigh`; anything else is
+an HTTP 400 (`high` included). **Omitted = `xhigh`** (`reasoning_effort|default('xhigh')`). The level only changes one sentence at the
+top of the system prompt: `xhigh` adds "Reasoning effort is set to xhigh. Please think carefully ... prioritize correctness",
+`low` adds "Reasoning effort is set to low. Keep your thinking brief and focused", and **`medium` adds nothing**. So every Qwen
+"thinking on" number in this repo (quality, time to solve, `bench_decode.py --thinking on/default`) is at **`xhigh`**, while
+**pi sends `medium`** by default (seen in its request bodies, [PI.md](PI.md)). Changing level mid-session makes the next request
+re-prefill the whole history (PI.md).
+
+Same harness as the quality table above (thinking on at 0.6 / 0.95 / 20, seeded per task, 16K budget), K=2, the server locked with
+`API_KEY`, nothing else on it. One run per level. Full sets at concurrency 8 (`results/quality/F4-deep-{medium,low}`; `xhigh` is
+the existing `F4-deep`); time to solve one problem at a time on every 4th HumanEval+ and every 8th LiveCodeBench problem
+(`results/quality/TTS-fp4local-{medium,low,off}`; `xhigh` is the existing `TTS-fp4local`, same subsets, seeds and K).
+p is paired McNemar against `xhigh` on the same problems.
+
+| Qwen FP4-Local (K=2) | HumanEval+ base / **plus** (164) | **LiveCodeBench** (80) | mean tokens HE+ / LCB | HE+ / LCB at 16K cap |
+|---|---|---|---|---|
+| `xhigh` (omitted; all earlier runs) | 95.7 / **92.7** | **46.2** | 1,826 / 10,443 | 6 / 40 |
+| `medium` (pi's default) | 98.8 / **95.7** (1 / 6, p=0.125) | **43.8** (4 / 2, p=0.69) | 1,004 / 10,593 | 0 / 43 |
+| `low` | 98.8 / **94.5** (2 / 5, p=0.45) | **47.5** (2 / 3, p=1.0) | 840 / 10,196 | 0 / 40 |
+
+`medium` vs `low`: HE+ 4 / 2 (p=0.69), LCB 1 / 4 (p=0.38). **No level is significantly better than another on quality.** The noise
+floor (A vs A2) is 2–3 flips each way.
+
+| Time to solve, one at a time | HE+ subset (41): solved | s / problem | s / solved | mean tokens | LCB subset (10): solved | s / problem | mean tokens | capped |
+|---|---|---|---|---|---|---|---|---|
+| `xhigh` (2026-10-17) | 37 | 40.4 | 44.8 | 2,168 | 1 | 292 | 15,313 | 9 |
+| `medium` | 36 | 14.7 | 16.7 | 945 | 1 | 301.5 | 15,726 | 9 |
+| `low` | **39** | **13.4** | **14.1** | 854 | 1 | 291 | 15,340 | 9 |
+| thinking off (greedy) | 38 | **4.8** | **5.2** | 304 | **3** | **173** | 10,508 | 1 |
+
+Reading it:
+- **`xhigh` buys nothing here and costs ~3× the time on easy problems.** `low` and `medium` write about half the tokens on
+  HumanEval+, never hit the cap (`xhigh`: 6 of 164, most of its misses), and score the same or a little higher.
+- **On hard problems the level doesn't change how long Qwen thinks.** All three levels run ~40 of 80 LiveCodeBench problems to the
+  16K cap and average 10.2–10.6K tokens. The sentence shortens easy answers, not hard ones.
+- **Thinking off is the fastest way to a right answer on easy problems** (4.8 s, 38/41; the full 164 thinking-off greedy run scores
+  94.5 too, table above).
+- **Thinking off on hard problems doesn't mean a short answer.** With thinking off Qwen reasons *in the visible answer*: 10.5K tokens
+  per LCB problem on average, but it stopped by itself on 9 of 10 and solved 3 of 10 to 1 of 10 at every thinking level. n=10 and
+  greedy vs sampled: a hint, not a result. The full 80-problem LiveCodeBench was never run with thinking off.
+- End-to-end streaming rate (prefill included) at K=2: ~64 tok/s on short answers at every level, ~52 tok/s on 16K-token runs.
+
+**How to use it:** keep pi at `medium` (its default) or use `low`; don't select `xhigh`. Use thinking off for mechanical edits and
+small functions, where it is ~3× faster again at the same pass rate. Pick one level per session, because switching costs a full
+re-prefill.
+
+---
+
 ## How to run it again
 
 ```bash
@@ -339,6 +393,8 @@ Knobs: `SPEC_TOKENS` (default 4, nvidia's), `MAX_SEQS`, `MAX_BATCHED`, `GMU`, `P
 ## Caveats / not measured
 
 - One run per quality test. The A-vs-A2 rerun is the noise floor: 2–3 flips each way on HumanEval+/MBPP+.
+- Effort study (2026-10-18): one run per level; time-to-solve subsets are 41 and 10 problems. The thinking-off time-to-solve run is
+  greedy while the thinking runs sample (0.6 / 0.95 / 20), so its LCB 3/10 is not a like-for-like comparison.
 - TP=2 only, as asked. nvidia validated TP=1 on a single Spark; that wasn't run, so whether one Spark is enough for this
   workload is unmeasured.
 - nvidia's recipe was used as written for everything except TP and K (EP impossible, 8192 batch no gain, above). Not tried: PLE in

@@ -13,7 +13,9 @@ Public notes, scripts and measured results from tuning LLM serving on a 2-node D
 - nvidia Qwen3.8-Flash-Next-FP4-Local (QAD NVFP4 + MXFP8, community b12x vLLM build): `FP4LOCAL.md`. Benchmarked 2026-10-16 at TP=2:
   ties or beats config C on every quality test; 5% slower with thinking on (K=2) and ~20% less aggregate at 3–6 streams, but a
   ~30% bigger KV pool (5.5M tokens), 14–18 GiB free per node and zero-recompute warm cache hits. **The live model since 2026-10-16**
-  (user's call), at MTP K=2: `LIVE=1 SPEC_TOKENS=2 fp4local/up.sh`. No EP on the current b12x build: a
+  (user's call), at MTP K=2: `LIVE=1 SPEC_TOKENS=2 fp4local/up.sh`. Reasoning effort (2026-10-18, FP4LOCAL.md): template accepts
+  `low`/`medium`/`xhigh`, **omitted = `xhigh`** (every pre-10-18 Qwen thinking number), pi sends `medium`; `low`/`medium` tie `xhigh`
+  on quality and are ~3× faster on easy problems. No EP on the current b12x build: a
   software limitation (b12x MoE backend + CSF scratch design), not the scale format; see FP4LOCAL.md "Why no expert parallelism".
 - nvidia GLM-5.3-Flash-FP4-Local (QAD NVFP4 + MXFP8, all 288 experts, same b12x build): `GLMFP4.md`. Benchmarked 2026-10-17 at TP=2,
   MTP K=3 (nvidia's K=5 is the slowest K here), `--language-model-only` (the full recipe dipped the head to ~1.4 GiB free after
@@ -51,6 +53,7 @@ tell the user. Fixing it means scrubbing plus a history rewrite, and rotating an
 | `GLM.md` | GLM-5.3-Flash E192/E224: setup, `reasoning_effort` semantics, speed + quality vs Qwen C and MiMo |
 | `FP4LOCAL.md` | nvidia FP4-Local vs config C: K sweep, quality vs A/B/C, KV sizing, lock-out and live switch |
 | `GLMFP4.md` | nvidia GLM FP4-Local: K sweep, speed, quality vs Qwen C / FP4-Local / E192 / E224, time-to-solve at C=1 |
+| `COMPARISON.md` | 2026-10-18 roll-up: every model × reasoning setting (Qwen off/low/medium/xhigh, MiMo off/on, GLM low/high/max): quality, time to solve, speed, usage advice |
 | `SGLANG.md` | 2026-10-18 research: no SGLang build reads FP4-Local (CSF expert scales: lossless offline fix; NVFP4 PLE table: needs an SGLang patch); published SGLang 2× Spark numbers not faster for single-user; nothing run |
 | `cluster.env.example` | template for the untracked `cluster.env` (HEAD, WORKER, API, REPO, MIMO_RECIPE) |
 | `scripts/` | Qwen-era benchmark tools; `bench_decode.py` works for any model (`--model`, `--url`); `prefix_probe.py` measures prefix-cache behaviour; `watch_stalls.sh` is the 2 s stall sampler |

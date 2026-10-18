@@ -75,7 +75,8 @@ dropped, and an E224 download was writing to the same disk). Boot to ready: 569â
 
 GLM-5.3's chat template has no thinking switch. It takes `reasoning_effort` (`low` / `high` / anything else = **`max`**),
 passed as `chat_template_kwargs.reasoning_effort` (or the top-level OpenAI field). **A client that sends nothing gets
-`max`.** pi doesn't send it, so pi would get max-effort reasoning on every turn.
+`max`.** pi sends `medium` by default (corrected 2026-10-18; this doc first said it sends nothing), which this template also
+turns into `max`, so pi at its default thinking level would get max-effort reasoning on every turn. Inferred, not run with pi.
 At `low` the model emitted **zero reasoning tokens** on every request we inspected, so `low` is the counterpart
 of Qwen/MiMo's "thinking off" in every table here. The harness gained env knobs for this (`NOTHINK_KWARGS`, `THINK_KWARGS`,
 `NOTHINK_MAX_TOKENS` in `quality/`, `--chat-kwargs` in `scripts/bench_decode.py`). Their defaults reproduce the old

@@ -1,0 +1,1 @@
+LCB pass@1 38/80 = 47.5% -> /out/lcb_think_scored.json

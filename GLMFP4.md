@@ -15,8 +15,8 @@ compressed scale format as Qwen FP4-Local, so the same community **b12x** vLLM b
 | | Qwen C | Qwen FP4-Local (live, K=2) | GLM E224 | **GLM FP4-Local (K=3)** | Verdict |
 |---|---|---|---|---|---|
 | HumanEval+ / MBPP+ / GSM8K, thinking off (GLM: effort low) | 93.3 / 79.9 / 96.4 | 94.5 / 79.9 / 96.4 | 92.1 / 82.0 / — | **91.5 / 81.7 / 96.5** | tie (every p ≥ 0.21) |
-| HumanEval+, thinking (GLM: effort high), 16K budget | 92.7 | 92.7 | — (E192 92.7) | **92.1** | tie |
-| **LiveCodeBench**, thinking, 16K budget | 41.2 | 46.2 | — (E192 47.5) | **55.0** | **GLM FP4: best; vs Qwen C p=0.003**, vs FP4-Local p=0.065 |
+| HumanEval+, thinking (Qwen: effort xhigh, the default; GLM: effort high), 16K budget | 92.7 | 92.7 (`medium` 95.7, `low` 94.5) | — (E192 92.7) | **92.1** | tie |
+| **LiveCodeBench**, thinking, 16K budget | 41.2 | 46.2 (`medium` 43.8, `low` 47.5) | — (E192 47.5) | **55.0** | **GLM FP4: best; vs Qwen C p=0.003**, vs FP4-Local `xhigh` p=0.065, `medium` p=0.012, `low` p=0.15 |
 | Long context 64K/128K | 95.1% | 97.2% | 100% | **99.3%** | GLM ≥ Qwen (vs C p=0.07) |
 | Corpus bits/byte (side note) | 0.048 | 0.048 | 0.141 | **0.087** | Qwen; GLM FP4 far better than the pruned builds |
 | Decode, 6-cell mean, thinking off / on (GLM: effort low / max), tok/s | 67.0 / 52.1 | 63.3 / 49.5 | 30.0 / 27.9 | **41.0 / 36.8** | Qwen ×1.35–1.6; GLM FP4 +37% / +32% over E224 |
@@ -25,17 +25,19 @@ compressed scale format as Qwen FP4-Local, so the same community **b12x** vLLM b
 | Warm prefix hit (recomputed tokens) | ~2.5K | 0 | — | **0** | |
 | KV pool (fp8) | 4.25M | 5.49M | 2.11M | **2.02M** (500K max context) | |
 | Memory free per node after boot | ~4–7 GiB | 14–18 GiB | 11–13 GiB | **7–8 GiB** | tight but stable |
-| **Time to solve**, HumanEval+ subset (41), one at a time | — | 40.4 s/problem (37/41) | — | **18.5 s/problem at high**, 99 s at max | **GLM at high 2.2× faster**; at max 2.5× slower |
-| **Time to solve**, LiveCodeBench subset (10), one at a time | — | 292 s/problem (1/10) | — | **323 s/problem at high** (2/10), 438 s at max (1/10) | mostly time to the 16K cap; GLM high solves 2 vs 1 in 10% more time |
+| **Time to solve**, HumanEval+ subset (41), one at a time | — | 40.4 s/problem at `xhigh` (37/41); **14.7 at `medium`** (36/41), **13.4 at `low`** (39/41), 4.8 thinking off (38/41) | — | 18.5 s/problem at high (36/41), 99 s at max | **Qwen at `low`/`medium` 1.3–1.4× faster than GLM high**; GLM high beat only Qwen `xhigh` (2.2×) |
+| **Time to solve**, LiveCodeBench subset (10), one at a time | — | 292 / 302 / 291 s/problem at `xhigh` / `medium` / `low` (1/10 each); 173 s thinking off (3/10, greedy) | — | 323 s/problem at high (2/10), 438 s at max (1/10) | mostly time to the 16K cap; n=10 can't separate solve counts |
 
 **Bottom line:** GLM FP4-Local is the strongest model we've run here on hard competitive code. LiveCodeBench 55% is the only
 significant quality gain over Qwen config C we've measured, and it ties everywhere else. But its tokens are 35–40% slower than the
 live Qwen FP4-Local's, it has under half the KV pool and it has less memory headroom.
 
-**Despite the slower tokens it solves easy problems faster, if it runs at `reasoning_effort=high`.** On HumanEval+, one problem at
-a time, it took 18.5 s per problem against Qwen's 40.4 s and solved 36 of 41 to Qwen's 37, because it thinks ~730 tokens where Qwen
-thinks ~2,200. **At the template default (effort max) it is 2.5× slower than Qwen**: 99 s per problem, with no more solved. On hard
-problems both mostly run out of the 16K budget, and GLM at high solved 2 of 10 to Qwen's 1 in 10% more wall clock.
+**On easy problems GLM at `reasoning_effort=high` beat Qwen only at Qwen's own slowest setting.** The 2026-10-17 comparison sent
+Qwen no effort, which its template resolves to `xhigh` (found 2026-10-18): GLM high took 18.5 s per problem against Qwen `xhigh`'s 40.4 s.
+At **`medium` (what pi actually sends) Qwen takes 14.7 s and at `low` 13.4 s**, so Qwen is the faster one, with the same pass rate
+(36–39 of 41; full 164: Qwen `medium` 95.7, `low` 94.5, GLM high 92.1, every p ≥ 0.11). Qwen with thinking off takes 4.8 s
+(38/41). **At GLM's template default (effort max) GLM is 99 s per problem.** On hard problems both mostly run out of the 16K budget;
+GLM at high solved 2 of 10 to Qwen's 1 at every level ([FP4LOCAL.md](FP4LOCAL.md) "Reasoning effort").
 
 **Removed from both nodes on 2026-10-17** after the tests (`glmfp4/setup_nodes.sh` re-downloads it, 166 GiB); the live model is unchanged (Qwen FP4-Local, K=2).
 
@@ -48,7 +50,7 @@ Based on the measurements above. Real agent sessions (multi-turn tool use, task 
 | Workload | Pick | Why (measured) |
 |---|---|---|
 | Hard algorithmic / competitive problems, where getting it right matters more than latency | **GLM** (effort high) | LiveCodeBench 55.0% vs 46.2% (p=0.065; vs config C 41.2%, p=0.003); hits the 16K cap less often (31 vs 40 of 80) |
-| Everyday coding-agent turns: small functions, edits, fixes | **GLM at effort high**, *if the client sends it*; otherwise **Qwen** | equal pass rates, but GLM high is 2.2× faster per problem (18.5 vs 40.4 s) because it thinks a third as much; GLM at max is 2.5× *slower* |
+| Everyday coding-agent turns: small functions, edits, fixes | **Qwen at `medium` or `low`** | equal pass rates; Qwen 14.7 / 13.4 s per problem vs GLM high 18.5 s (and GLM max 99 s). The earlier "GLM 2.2× faster" was against Qwen `xhigh` (40.4 s) |
 | Thinking off: fast completions, boilerplate, mechanical edits | **Qwen** | ties on HumanEval+/MBPP+/GSM8K; decode 63 vs 41 tok/s, so the same answer arrives ~1.5× sooner |
 | Several agents at once | **Qwen** | aggregate 1.5–2× higher at C2–C6 (C6 187 vs 94 tok/s) |
 | Big repos, many long sessions in parallel, giant cold prompts | **Qwen** | KV pool 5.49M vs 2.03M tokens; cold prefill 2,700 vs 2,170 tok/s (a 180K-token cold miss: ~67 s vs ~83 s, estimated from those rates) |
@@ -57,7 +59,8 @@ Based on the measurements above. Real agent sessions (multi-turn tool use, task 
 | Long unattended uptime, stability | **Qwen** | 14–18 GiB free per node vs 7–8 GiB; days of live traffic behind it; GLM ran only for benchmarks |
 
 Short version: **Qwen FP4-Local stays the default** for speed, concurrency, KV room and headroom. **GLM FP4-Local is the one to
-switch to for a run of hard problems**, and it is only fast when told `reasoning_effort=high`. The two can't both be served at
+switch to for a run of hard problems** (LiveCodeBench 55.0 vs Qwen 43.8–47.5 at any effort), and it is only fast when told
+`reasoning_effort=high`. The two can't both be served at
 once (one model per cluster), so it is a switch (~5 min warm boot), not a per-request choice.
 
 ---
@@ -222,25 +225,31 @@ high, 1.0/0.95; Qwen thinking on, 0.6/0.95/20) plus GLM at **effort max**, pi's 
 problem (41) and every 8th LiveCodeBench problem (10). Wall clock per request, from `quality/deep_eval.py gen-think --stride N`
 at `CONCURRENCY=1` (new `elapsed_s` field). Files: `results/quality/TTS-{glmfp4-high,glmfp4-max,fp4local}/`.
 
-| | n | GLM FP4-Local, effort high | GLM FP4-Local, effort max | Qwen FP4-Local (live, K=2), thinking on |
-|---|---|---|---|---|
-| HumanEval+ subset: solved | 41 | 36 | 35 | 37 |
-| ↳ seconds per problem | | **18.5** | 99.3 | 40.4 |
-| ↳ seconds per solved problem | | **21.1** | 116.4 | 44.8 |
-| ↳ mean completion tokens | | 728 | 3,875 | 2,168 |
-| LiveCodeBench subset: solved | 10 | 2 | 1 | 1 |
-| ↳ seconds per problem | | 323 | 438 | **292** |
-| ↳ mean completion tokens | | 10,680 | 15,043 | 15,313 |
+| | n | GLM FP4-Local, effort high | GLM FP4-Local, effort max | Qwen FP4-Local (K=2), effort `xhigh` (none sent = template default) | Qwen, `medium` (pi's default) | Qwen, `low` | Qwen, thinking off (greedy) |
+|---|---|---|---|---|---|---|---|
+| HumanEval+ subset: solved | 41 | 36 | 35 | 37 | 36 | **39** | 38 |
+| ↳ seconds per problem | | 18.5 | 99.3 | 40.4 | 14.7 | 13.4 | **4.8** |
+| ↳ seconds per solved problem | | 21.1 | 116.4 | 44.8 | 16.7 | 14.1 | **5.2** |
+| ↳ mean completion tokens | | 728 | 3,875 | 2,168 | 945 | 854 | 304 |
+| LiveCodeBench subset: solved | 10 | 2 | 1 | 1 | 1 | 1 | **3** |
+| ↳ seconds per problem | | 323 | 438 | 292 | 301.5 | 291 | **173** |
+| ↳ mean completion tokens | | 10,680 | 15,043 | 15,313 | 15,726 | 15,340 | 10,508 |
+
+The Qwen `medium` / `low` / thinking-off columns were added on 2026-10-18 (`results/quality/TTS-fp4local-{medium,low,off}`; same
+subsets, seeds, K and lock-out). The 2026-10-17 run sent Qwen no `reasoning_effort`, i.e. `xhigh`. Thinking off is greedy (as the
+thinking-off quality runs), the others sample, so its LCB 3/10 is a hint, not a like-for-like win; with thinking off Qwen reasons
+in the visible answer (10.5K tokens on LCB) and stopped by itself on 9 of 10.
 
 The LiveCodeBench subset is hard: in the full concurrency-8 runs the same 10 problems went 3/10 (GLM FP4-Local), 2/10 (E192), 1/10
 (both Qwens). With n=10 the solve counts can't separate the models; the seconds per problem can.
 
 Reading it:
-- **Easy problems: GLM at effort high finishes 2.2× sooner.** It takes 18.5 s per problem against Qwen's 40.4 s, and 21.1 s against
-  44.8 s per *solved* problem. The solve rate is the same: 36 vs 37 of 41, and the full 164 tie (5 / 4, p=1.0). Qwen streams faster
+- **Easy problems: GLM at effort high finishes 2.2× sooner than Qwen at `xhigh`, but not than Qwen at `medium` or `low`.** It
+  takes 18.5 s per problem against Qwen `xhigh`'s 40.4 s and 21.1 s against 44.8 s per *solved* problem; Qwen `medium` / `low`
+  take 14.7 / 13.4 s (16.7 / 14.1 per solved). The solve rate is the same: 36 vs 37 of 41, and the full 164 tie (5 / 4, p=1.0). Qwen streams faster
   end to end, prefill included (~54 vs ~39 tok/s), but writes 3× the tokens.
-- **At effort max GLM loses that.** It writes 3,875 tokens per problem and takes 99 s: 2.5× slower than Qwen, 5.4× slower than
-  itself at high, and with one fewer solve. So the effort pi sends decides which way this goes, and if pi sends nothing it gets max.
+- **At effort max GLM loses that.** It writes 3,875 tokens per problem and takes 99 s: 2.5× slower than Qwen `xhigh` (~7× slower than Qwen `medium`), 5.4× slower than
+  itself at high, and with one fewer solve. So the effort pi sends decides which way this goes: anything but `low`/`high` (including pi's default `medium`) gets max.
   The fix for that is in the next section.
 - **Hard problems: the wall clock is mostly time to the cap.** Qwen hit the 16K budget on 9 of 10, GLM high on 6 of 10 and GLM max on
   9 of 10. "Seconds per problem" here is roughly 16K ÷ token speed, so Qwen's faster tokens win it (292 vs 323 s). Per *solved* hard
@@ -250,7 +259,12 @@ Reading it:
 
 ### Server-side default effort (`DEFAULT_EFFORT=high`)
 
-pi sends no `reasoning_effort`, which on this template means `max`, the slow setting above. The pinned build has vLLM's
+**Correction (2026-10-18):** pi *does* send `reasoning_effort`: `"medium"` at its default thinking level (seen in its request
+bodies against Qwen, [PI.md](PI.md)). GLM's template treats `medium` as `max`, and a request's explicit value beats
+`DEFAULT_EFFORT`, so the server-side default below would *not* help pi. Inferred, not tested (pi was never pointed at GLM):
+for GLM, set pi's thinking level to `high` so it sends `high`.
+
+A client that sends no `reasoning_effort` gets `max` on this template, the slow setting above. The pinned build has vLLM's
 `--default-chat-template-kwargs`, merged *under* each request's own kwargs, so a request's explicit value still wins
 (`vllm/renderers/params.py`). `glmfp4/up.sh` exposes it as `DEFAULT_EFFORT`. Check on one boot with `SPEC_TOKENS=3 DEFAULT_EFFORT=high`:
 the same prompt, greedy, with the field omitted / low / high / max
@@ -265,8 +279,8 @@ the same prompt, greedy, with the field omitted / low / high / max
 
 "Omitted" behaves as high: a few dozen reasoning characters, against 12K at max. It isn't token-for-token identical to the
 explicit-high answer. Our best guess is that greedy decoding on this build isn't bit-reproducible between requests (MTP drafts,
-b12x kernels), but we didn't confirm it: two identical explicit-high requests weren't compared. **For pi, boot with
-`DEFAULT_EFFORT=high`.** It's off by default so the script reproduces nvidia's recipe as written.
+b12x kernels), but we didn't confirm it: two identical explicit-high requests weren't compared. **For clients that send no effort, boot with
+`DEFAULT_EFFORT=high`** (pi sends one; see the correction above). It's off by default so the script reproduces nvidia's recipe as written.
 
 ---
 
@@ -281,7 +295,7 @@ glmfp4/down.sh --qwen               # or back to config C
 ```
 
 Knobs: `SPEC_TOKENS` (default 5, nvidia's; **use 3**), `DRAFT_MOE` (`humming`), `MAX_SEQS` (8), `MAX_BATCHED` (4096), `GMU` (0.87),
-`MAX_LEN` (500000), `EP` (fails), `LM_ONLY` (1), `DEFAULT_EFFORT` (unset = template max; **`high` for pi**, which sends none).
+`MAX_LEN` (500000), `EP` (fails), `LM_ONLY` (1), `DEFAULT_EFFORT` (unset = template max; `high` for clients that send none; pi sends `medium`, which overrides it, see above).
 
 On the nodes: checkpoint in the HF cache (`models--nvidia--GLM-5.3-Flash-FP4-Local` + the shared `hub/blobs/` store, 166 GiB per
 node), caches in `~/glmfp4-cache` (root-owned files from the container; delete with a privileged container as in GLM.md).

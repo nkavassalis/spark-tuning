@@ -29,6 +29,7 @@ and the 300K window.
 | `GLM.md` | GLM-5.3-Flash E192/E224 setup, speed and quality on this cluster, compared with Qwen C and MiMo |
 | `FP4LOCAL.md` | nvidia's QAD FP4-Local quant of the same Qwen vs our config C: speed (K sweep), quality, KV, how to switch |
 | `GLMFP4.md` | nvidia's QAD FP4-Local GLM-5.3-Flash: K sweep, speed and quality vs Qwen and the pruned GLMs, time-to-solve |
+| `COMPARISON.md` | every model × every reasoning setting we ran (quality, time to solve, speed) on one page, plus how to use them |
 | `SGLANG.md` | can SGLang serve FP4-Local instead of the b12x vLLM build? Not yet (CSF scales, NVFP4 PLE table); researched, not measured |
 | `scripts/` | Qwen benchmark / health scripts (`bench_decode.py`, `spec_acceptance.py`, `check_cluster.sh`, `mtp_ab.sh`, `prefix_probe.py` for prefix-cache behaviour, `watch_stalls.sh` stall sampler, `stage_pi_compaction.py` for the pi client staging) |
 | `PI.md` | the client side: how pi's request shape produces stalls, and the client-side tuning |
