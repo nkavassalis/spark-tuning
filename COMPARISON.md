@@ -66,8 +66,10 @@ models were timed.
 | | `xhigh` | 37 | 40.4 | 44.8 | 2,168 | 1 | 292 | 15,313 |
 | GLM FP4-Local (K=3) | `high` | 36 | 18.5 | 21.1 | 728 | 2 | 323 | 10,680 |
 | | `max` | 35 | 99.3 | 116.4 | 3,875 | 1 | 438 | 15,043 |
+| | `low` (no reasoning) | **not measured** (GLM was removed before thinking-off timing was added); *estimate* ~3.5–4 s per problem from 144 mean tokens at 41 tok/s. Full HE+ at `low`, greedy: 91.5 | | | 144 | — | — | — |
 
-The Qwen thinking-off row is greedy and the rest sample, so its LCB 3/10 is a hint, not a like-for-like win. With thinking off
+GLM `low` has no measured time to solve; its row is an estimate from the thinking-off decode rate and mean answer length,
+not a timing. The Qwen thinking-off row is greedy and the rest sample, so its LCB 3/10 is a hint, not a like-for-like win. With thinking off
 Qwen reasons in the visible answer on hard problems (10.5K tokens). n=10 can't separate LCB solve counts.
 
 ## Speed
