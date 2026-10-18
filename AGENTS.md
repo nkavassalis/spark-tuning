@@ -51,6 +51,7 @@ tell the user. Fixing it means scrubbing plus a history rewrite, and rotating an
 | `GLM.md` | GLM-5.3-Flash E192/E224: setup, `reasoning_effort` semantics, speed + quality vs Qwen C and MiMo |
 | `FP4LOCAL.md` | nvidia FP4-Local vs config C: K sweep, quality vs A/B/C, KV sizing, lock-out and live switch |
 | `GLMFP4.md` | nvidia GLM FP4-Local: K sweep, speed, quality vs Qwen C / FP4-Local / E192 / E224, time-to-solve at C=1 |
+| `SGLANG.md` | 2026-10-18 research: no SGLang build reads FP4-Local (CSF expert scales: lossless offline fix; NVFP4 PLE table: needs an SGLang patch); published SGLang 2× Spark numbers not faster for single-user; nothing run |
 | `cluster.env.example` | template for the untracked `cluster.env` (HEAD, WORKER, API, REPO, MIMO_RECIPE) |
 | `scripts/` | Qwen-era benchmark tools; `bench_decode.py` works for any model (`--model`, `--url`); `prefix_probe.py` measures prefix-cache behaviour; `watch_stalls.sh` is the 2 s stall sampler |
 | `quality/` | quality-eval harness (runs on a node with docker; `API` env required) |
