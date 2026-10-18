@@ -1,0 +1,12 @@
+# pi resume (pi -c) against the live FP4-Local server, 2026-10-18, via a logging proxy (stdlib, not kept).
+# ttft_s = proxy-side time to first response byte. Single run each. Raw request bodies were not kept (they contain local paths).
+# req	scenario	ttft_s	result
+1	fresh session, turn 1 (reads FP4LOCAL.md)	3.37	cold (new)
+2	fresh session, turn 2 (reads QWEN.md)	9.07	append to turn 1
+3	pi -c, nothing changed	0.34	warm: messages/tools/params byte-identical to req 2 + new user turn
+4	pi -c after appending one line to AGENTS.md	11.9	cold: first diff in system message at char 22751 (end of injected AGENTS.md)
+5	pi -c --model qwen/qwen3.8-flash-next:high	-	HTTP 400: Unexpected reasoning effort high (supported: xhigh, medium, low)
+6	retry of 5	-	HTTP 400
+7	pi -c, default thinking (medium)	0.35	warm: req 7 extends req 4 exactly
+8	pi -c --model qwen/qwen3.8-flash-next:low	12.2	cold: only reasoning_effort differs (medium -> low); messages extend req 7 exactly
+9	pi -c, back to default (medium)	0.50	warm

@@ -168,8 +168,27 @@ today: 11,959 tokens in 4.49 s = 2,664 tok/s, and 96,559 in 36.2 s = 2,668; conf
 therefore ~68 s now against ~50 s on config C. Separately, a **server** restart wipes the KV cache outright - it lives
 in GPU memory - so the FP4-Local swap on 2026-10-16 made every session's next resume cold regardless of client.
 
+**Measured end to end on 2026-10-18 with real pi resumes.** A copy of the pi config pointed pi at a logging proxy in
+front of the live server, which saved every request body and its time to first token. The session first read
+`FP4LOCAL.md` and `QWEN.md`, so the history was ~87K characters (`results/pi-resume-2026-10-18.tsv`):
+
+| resume (`pi -c`) | TTFT | what the request body showed |
+|---|---|---|
+| nothing changed | **0.34 s** | all prior messages, tools and params byte-identical: warm |
+| one line appended to `AGENTS.md` | **11.9 s** | first difference in message 0 (system) at char 22,751, the end of the injected `AGENTS.md`: cold |
+| thinking level changed (`--model qwen/qwen3.8-flash-next:low`, default is medium) | **12.2 s** | `reasoning_effort` the only difference, messages identical: cold |
+| back to the default level | **0.50 s** | warm again: the medium-rendered prefix was still cached |
+
+So a restart is warm by default. The two measured causes of a cold resume are an edited context file and a **changed
+thinking level**. The second one is the chat template: with thinking on, `low` and `xhigh` each write a different
+"Reasoning effort is set to ..." sentence as the very first line of the system prompt, and `medium` writes none, so
+switching levels diverges at about token 0. The template accepts only `low`, `medium` and `xhigh`. **`high` returns HTTP
+400** ("Unexpected reasoning effort high"), which pi shows as "Connection error." TTFT here only separates cold from
+warm; it is not a speed number (single run each, other traffic on the server not ruled out).
+
 Mitigations, cheapest first: batch injected-file edits to session boundaries, since one edit is charged to every
-session that restarts afterwards; keep injected files short (this repo's `AGENTS.md` is ~17K chars and sits *ahead of
+session that restarts afterwards; keep one thinking level per session (switching back to an earlier level is warm only
+while that prefix is still cached); keep injected files short (this repo's `AGENTS.md` is ~17K chars and sits *ahead of
 the whole conversation*, so it is paid on every cold prefill); prefer continuing a session over restarting one; leave
 `compaction.reserveTokens` at 65,536 so a resume's prompt has a bound.
 
@@ -191,8 +210,8 @@ answers. Qwen's template defaults to thinking **on**, which is the slower path a
   real session — nobody has crossed 196K since it was set.
 - Session-level traces of the concurrent agents live on another host, so per-session prompt growth was inferred from
   server-side histograms, not from their session logs.
-- Whether a *resume* costs a full re-crunch in practice is inferred from the code path plus the observed miss sizes,
-  not measured end to end.
+- Resume behaviour is now measured end to end (2026-10-18, above) for no change, a context-file edit and a thinking-level
+  change. Tool/skill/extension set, model, cwd and pi-version changes are still inferred, not measured.
 - The FP4-Local figures in this doc: the warm-hit zero is my own re-measurement of what `FP4LOCAL.md` already
   reported (single run each); the 36.2 s / 2,668 tok/s cold number is mine, single run, 96K prompt. No repeat spread,
   and nothing else was on the server at the time.
