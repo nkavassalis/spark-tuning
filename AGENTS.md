@@ -55,6 +55,7 @@ tell the user. Fixing it means scrubbing plus a history rewrite, and rotating an
 | `GLMFP4.md` | nvidia GLM FP4-Local: K sweep, speed, quality vs Qwen C / FP4-Local / E192 / E224, time-to-solve at C=1 |
 | `COMPARISON.md` | 2026-10-18 roll-up: every model × reasoning setting (Qwen off/low/medium/xhigh, MiMo off/on, GLM low/high/max): quality, time to solve, speed, usage advice |
 | `SGLANG.md` | 2026-10-18 research: no SGLang build reads FP4-Local (CSF expert scales: lossless offline fix; NVFP4 PLE table: needs an SGLang patch); published SGLang 2× Spark numbers not faster for single-user; nothing run |
+| `pi/models.json.example` | IP-free copy of the pi provider config for the live Qwen: temperature 0.6 via `samplingParams`, image input on |
 | `cluster.env.example` | template for the untracked `cluster.env` (HEAD, WORKER, API, REPO, MIMO_RECIPE) |
 | `scripts/` | Qwen-era benchmark tools; `bench_decode.py` works for any model (`--model`, `--url`); `prefix_probe.py` measures prefix-cache behaviour; `watch_stalls.sh` is the 2 s stall sampler |
 | `quality/` | quality-eval harness (runs on a node with docker; `API` env required) |
@@ -136,10 +137,11 @@ miss costs ~50 s of exclusive prefill. Staged there on 2026-10-15: pi `compactio
 - Dates in docs: YYYY-MM-DD. New experiments get a section in the model's .md plus a result file.
 
 ## Known issues / TODOs
-- **pi samples Qwen at temperature 1.0 (the checkpoint's `generation_config`), every Qwen thinking score here is at 0.6.**
+- **Server default for Qwen is temperature 1.0 (the checkpoint's `generation_config`), every Qwen thinking score here is at 0.6.**
+  pi fixed client-side 2026-10-19 with `samplingParams` (`pi/models.json.example`; a top-level model `temperature` is silently ignored).
   Measured 2026-10-19 (FP4-Local, `medium`): HumanEval+ same, LiveCodeBench 37.5% vs 43.8%, all losses on hard problems (p=0.125
-  same level; p=0.016/0.021 vs `xhigh`/`low` at 0.6). Fix `--override-generation-config '{"temperature":0.6}'` is **not applied**
-  (changes live output; user's call). FP4LOCAL.md "Sampling temperature".
+  same level; p=0.016/0.021 vs `xhigh`/`low` at 0.6). Server fix `--override-generation-config '{"temperature":0.6}'` is **not applied**
+  (changes output for every client; user's call). FP4LOCAL.md "Sampling temperature".
 - **Multi-agent stalls (config C, 2026-10-15): mechanism proven.** A captured 50 s freeze was one request
   re-prefilling **182,012 tokens** at 3,640 tok/s: GPU 100% SM on compute, no preemption, queue empty, PSI 0.00
   (reclaim ruled out), RoCE carrying NCCL only. Driver: pi re-sends whole histories (p50 ~54K, max ~172K tokens), so a

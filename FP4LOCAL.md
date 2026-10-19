@@ -13,14 +13,16 @@ validated it on **one** Spark (TP=1). We ran it TP=2 across both Sparks so every
 ## Summary
 
 > [!WARNING]
-> **pi does not run Qwen at the sampling settings this repo benchmarks.** pi sends no `temperature`, so vLLM applies the
+> **Until 2026-10-19 pi did not run Qwen at the sampling settings this repo benchmarks.** pi sends no `temperature` by default, so vLLM applies the
 > checkpoint's `generation_config.json`: **temperature 1.0 / top_p 0.95 / top_k 20**. Every Qwen thinking-on score in this repo was
 > measured at **0.6** / 0.95 / 20 (thinking off: greedy). Re-measured at pi's real settings on 2026-10-19 (FP4-Local, `medium`, 1.0):
 > HumanEval+ is unchanged (95.1 vs 95.7), but **LiveCodeBench drops to 37.5% from 43.8%**. All 6 lost problems are hard ones
 > (hard: 4/46 vs 9/46) and 49 vs 43 of 80 hit the 16K cap. Paired: vs `medium` at 0.6, 6 lost / 1 gained, p=0.125; vs `xhigh` at 0.6
 > p=0.016, vs `low` at 0.6 p=0.021. One run each. **Read the repo's Qwen thinking scores as "at 0.6", not "what pi gets".**
-> Fix, *not applied* (it changes live output): serve with `--override-generation-config '{"temperature":0.6}'`, or have the client
-> send 0.6. Details: [FP4LOCAL.md](FP4LOCAL.md) "Sampling temperature".
+> **Fixed client-side 2026-10-19:** pi now sends 0.6 via `"samplingParams": {"temperature": 0.6}` on the model
+> ([pi/models.json.example](pi/models.json.example)). A top-level `"temperature"` key on the model is **silently ignored** by pi.
+> The server default is still 1.0 for any other client (server fix, not applied: `--override-generation-config '{"temperature":0.6}'`).
+> Details: [FP4LOCAL.md](FP4LOCAL.md) "Sampling temperature".
 
 
 | | config C (prod) | **FP4-Local** (best K per row) | Verdict |
@@ -418,7 +420,12 @@ Reading it:
 - **So the repo's Qwen thinking scores overstate what pi gets on hard problems**, and the "`medium`/`low` tie `xhigh`" result above
   holds at 0.6 only.
 
-**Fix (not applied; it changes live output, so it's the user's call):** add
+**Client fix, applied 2026-10-19 (user's call):** pi's model entry carries `"samplingParams": {"temperature": 0.6}`
+([pi/models.json.example](pi/models.json.example)). Checked against a capture server with pi 0.87.1: that form puts
+`"temperature": 0.6` in the request body; a top-level `"temperature": 0.6` on the model is accepted without error but sends
+nothing. top_p 0.95 / top_k 20 still come from the checkpoint's config, so pi now matches the harness's thinking-on sampling.
+
+**Server fix (not applied; it changes output for every client):** add
 `--override-generation-config '{"temperature":0.6}'` to the serve command (it is merged into the model's default config;
 that a request's own `temperature` still wins is vLLM's usual default handling, not tested here), or have the client send 0.6. Untested here: whether thinking-off quality changes at 1.0
 (all thinking-off numbers are greedy), and whether 0.6 is the best value rather than just better than 1.0.
@@ -449,4 +456,6 @@ Knobs: `SPEC_TOKENS` (default 4, nvidia's), `MAX_SEQS`, `MAX_BATCHED`, `GMU`, `P
 - Live since 2026-10-16 ~16:30 UTC with no Docker restart policy (same as config C): after a node reboot, run `LIVE=1 SPEC_TOKENS=2
   fp4local/up.sh`. Multi-agent stall behaviour (QWEN.md) under the new server is not yet observed.
 - The b12x build is a community nightly, not upstream vLLM. Pinned by digest here; behaviour can change between nightlies.
-- Not exercised: vision input, 1M context, real pi agent sessions, multi-agent stall behaviour (QWEN.md).
+- Vision: smoke-tested only (2026-10-19): a two-colour PNG answered correctly by the server (thinking off, 0.58 s) and through
+  pi with `"input": ["text", "image"]`. No image-quality benchmark, no image-prompt speed numbers, video not tried.
+- Not exercised: 1M context, real pi agent sessions, multi-agent stall behaviour (QWEN.md).

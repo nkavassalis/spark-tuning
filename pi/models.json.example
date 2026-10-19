@@ -1,0 +1,34 @@
+{
+  "providers": {
+    "qwen": {
+      "baseUrl": "http://<head>:8000/v1",
+      "api": "openai-completions",
+      "apiKey": " ",
+      "compat": {
+        "supportsDeveloperRole": false
+      },
+      "models": [
+        {
+          "id": "qwen3.8-flash-next",
+          "name": "Qwen 3.8 Flash Next (local)",
+          "reasoning": true,
+          "input": [
+            "text",
+            "image"
+          ],
+          "contextWindow": 262000,
+          "maxTokens": 32000,
+          "cost": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0
+          },
+          "samplingParams": {
+            "temperature": 0.6
+          }
+        }
+      ]
+    }
+  }
+}

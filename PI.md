@@ -204,6 +204,16 @@ The local pi config (outside this repo) has a `qwen` provider at `<head>:8000/v1
 model currently served works; `mimo/up.sh` / `glm/up.sh GLM_VARIANT=E224` / `mimo/down.sh --qwen` change which one
 answers. Qwen's template defaults to thinking **on**, which is the slower path above.
 
+The `qwen` entry, IP-free, is [pi/models.json.example](pi/models.json.example) (copy it to `~/.pi/agent/models.json` and
+replace `<head>`). Two things in it were checked on 2026-10-19 with pi 0.87.1:
+
+| Setting | Why | Checked how |
+|---|---|---|
+| `"samplingParams": {"temperature": 0.6}` | without it the server applies 1.0, which lost on hard problems ([FP4LOCAL.md](FP4LOCAL.md) "Sampling temperature") | capture server: this form sends `"temperature": 0.6`; a top-level `"temperature": 0.6` on the model is accepted and **silently dropped** |
+| `"input": ["text", "image"]` | the checkpoint has a vision tower and the server serves it | `pi -p @image.png` against the live server, answered correctly (smoke test only) |
+
+`contextWindow` 262000 sits under the server's 262,144.
+
 ## Open / unverified
 
 - The `reserveTokens` staging is applied and verified in the config file, but has not yet been observed firing in a
