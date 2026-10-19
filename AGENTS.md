@@ -136,6 +136,10 @@ miss costs ~50 s of exclusive prefill. Staged there on 2026-10-15: pi `compactio
 - Dates in docs: YYYY-MM-DD. New experiments get a section in the model's .md plus a result file.
 
 ## Known issues / TODOs
+- **pi samples Qwen at temperature 1.0 (the checkpoint's `generation_config`), every Qwen thinking score here is at 0.6.**
+  Measured 2026-10-19 (FP4-Local, `medium`): HumanEval+ same, LiveCodeBench 37.5% vs 43.8%, all losses on hard problems (p=0.125
+  same level; p=0.016/0.021 vs `xhigh`/`low` at 0.6). Fix `--override-generation-config '{"temperature":0.6}'` is **not applied**
+  (changes live output; user's call). FP4LOCAL.md "Sampling temperature".
 - **Multi-agent stalls (config C, 2026-10-15): mechanism proven.** A captured 50 s freeze was one request
   re-prefilling **182,012 tokens** at 3,640 tok/s: GPU 100% SM on compute, no preemption, queue empty, PSI 0.00
   (reclaim ruled out), RoCE carrying NCCL only. Driver: pi re-sends whole histories (p50 ~54K, max ~172K tokens), so a

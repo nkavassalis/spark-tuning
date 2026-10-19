@@ -6,6 +6,16 @@ A/B/C), [FP4LOCAL.md](FP4LOCAL.md) (Qwen FP4-Local), [MIMO.md](MIMO.md) / [QWEN_
 (E192/E224), [GLMFP4.md](GLMFP4.md) (GLM FP4-Local). Collected 2026-10-18. **"—" = not measured.** One run per cell unless noted;
 the noise floor (Qwen A run twice) is 2–3 problems each way on HumanEval+/MBPP+.
 
+> [!WARNING]
+> **pi does not run Qwen at the sampling settings this repo benchmarks.** pi sends no `temperature`, so vLLM applies the
+> checkpoint's `generation_config.json`: **temperature 1.0 / top_p 0.95 / top_k 20**. Every Qwen thinking-on score in this repo was
+> measured at **0.6** / 0.95 / 20 (thinking off: greedy). Re-measured at pi's real settings on 2026-10-19 (FP4-Local, `medium`, 1.0):
+> HumanEval+ is unchanged (95.1 vs 95.7), but **LiveCodeBench drops to 37.5% from 43.8%**. All 6 lost problems are hard ones
+> (hard: 4/46 vs 9/46) and 49 vs 43 of 80 hit the 16K cap. Paired: vs `medium` at 0.6, 6 lost / 1 gained, p=0.125; vs `xhigh` at 0.6
+> p=0.016, vs `low` at 0.6 p=0.021. One run each. **Read the repo's Qwen thinking scores as "at 0.6", not "what pi gets".**
+> Fix, *not applied* (it changes live output): serve with `--override-generation-config '{"temperature":0.6}'`, or have the client
+> send 0.6. Details: [FP4LOCAL.md](FP4LOCAL.md) "Sampling temperature".
+
 ## The reasoning controls, per model
 
 | Model | Control | Levels | Default when the request sends nothing | What pi sends |
@@ -31,7 +41,8 @@ every model's runs hit the 16K cap, so it measures "solves it within 16K tokens"
 | | thinking on, `xhigh` | 92.7 | — | — | 41.2 | |
 | **Qwen FP4-Local** (live) | thinking off | 94.5 | 79.9 | 96.4 | — | 97.2% |
 | | thinking on, `low` | 94.5 | — | — | 47.5 | |
-| | thinking on, `medium` (pi) | **95.7** | — | — | 43.8 | |
+| | thinking on, `medium`, T=0.6 | **95.7** | — | — | 43.8 | |
+| | thinking on, `medium`, **T=1.0 (what pi gets)** | 95.1 | — | — | **37.5** | |
 | | thinking on, `xhigh` | 92.7 | — | — | 46.2 | |
 | MiMo | thinking off (server rep-pen 1.05) | 88.4 | 74.3 | 96.4 | — | 90.3% |
 | | thinking on | 89.0 | — | — | 46.2 | |
@@ -62,7 +73,8 @@ models were timed.
 |---|---|---|---|---|---|---|---|---|
 | Qwen FP4-Local (K=2) | thinking off (greedy) | 38 | **4.8** | **5.2** | 304 | **3** | **173** | 10,508 |
 | | `low` | **39** | 13.4 | 14.1 | 854 | 1 | 291 | 15,340 |
-| | `medium` (pi) | 36 | 14.7 | 16.7 | 945 | 1 | 301.5 | 15,726 |
+| | `medium`, T=0.6 | 36 | 14.7 | 16.7 | 945 | 1 | 301.5 | 15,726 |
+| | `medium`, **T=1.0 (what pi gets)** | 38 | 15.8 | 17.0 | 1,010 | 1 | 332.5 | 15,789 |
 | | `xhigh` | 37 | 40.4 | 44.8 | 2,168 | 1 | 292 | 15,313 |
 | GLM FP4-Local (K=3) | `high` | 36 | 18.5 | 21.1 | 728 | 2 | 323 | 10,680 |
 | | `max` | 35 | 99.3 | 116.4 | 3,875 | 1 | 438 | 15,043 |
@@ -93,6 +105,7 @@ nothing else on the server.
 
 ## How to use it (from the above)
 
+- **pi runs at temperature 1.0, which measured worse on hard problems than the 0.6 used everywhere else here** (warning above).
 - **Default: Qwen FP4-Local, thinking on at `medium` (pi's default) or `low`.** Same quality as `xhigh`, ~3× faster on easy
   problems, and faster than GLM `high` there too. Don't pick `xhigh`.
 - **Mechanical edits and small functions: Qwen with thinking off**, ~3× faster again at the same HumanEval+ pass rate.

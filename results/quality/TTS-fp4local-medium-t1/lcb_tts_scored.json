@@ -1,0 +1,58 @@
+{
+ "per_task": {
+  "lcb/abc388_g": false,
+  "lcb/abc397_g": false,
+  "lcb/abc389_f": false,
+  "lcb/abc394_f": false,
+  "lcb/arc192_a": false,
+  "lcb/abc396_c": true,
+  "lcb/arc193_b": false,
+  "lcb/arc196_b": false,
+  "lcb/abc391_f": false,
+  "lcb/abc392_f": false
+ },
+ "detail": {
+  "lcb/abc388_g": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/abc397_g": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/abc389_f": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/abc394_f": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/arc192_a": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/abc396_c": {
+   "pass": true,
+   "why": "pass"
+  },
+  "lcb/arc193_b": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/arc196_b": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/abc391_f": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/abc392_f": {
+   "pass": false,
+   "why": "no code"
+  }
+ },
+ "accuracy": 0.1,
+ "n": 10
+}

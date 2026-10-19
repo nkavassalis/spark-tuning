@@ -1,0 +1,1 @@
+HE+ subset n=41 plus-pass 38/41, wall 646s, 15.8s/problem, 17.0s per solved, mean tokens 1010

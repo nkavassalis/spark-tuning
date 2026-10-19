@@ -19,6 +19,16 @@ Head-to-head speed and quality on this cluster: **[QWEN_VS_MIMO.md](QWEN_VS_MIMO
 single-user coding Qwen config C is 1.3–2.7× faster and at least as accurate. MiMo is ahead only on multimodal input
 and the 300K window.
 
+> [!WARNING]
+> **pi does not run Qwen at the sampling settings this repo benchmarks.** pi sends no `temperature`, so vLLM applies the
+> checkpoint's `generation_config.json`: **temperature 1.0 / top_p 0.95 / top_k 20**. Every Qwen thinking-on score in this repo was
+> measured at **0.6** / 0.95 / 20 (thinking off: greedy). Re-measured at pi's real settings on 2026-10-19 (FP4-Local, `medium`, 1.0):
+> HumanEval+ is unchanged (95.1 vs 95.7), but **LiveCodeBench drops to 37.5% from 43.8%**. All 6 lost problems are hard ones
+> (hard: 4/46 vs 9/46) and 49 vs 43 of 80 hit the 16K cap. Paired: vs `medium` at 0.6, 6 lost / 1 gained, p=0.125; vs `xhigh` at 0.6
+> p=0.016, vs `low` at 0.6 p=0.021. One run each. **Read the repo's Qwen thinking scores as "at 0.6", not "what pi gets".**
+> Fix, *not applied* (it changes live output): serve with `--override-generation-config '{"temperature":0.6}'`, or have the client
+> send 0.6. Details: [FP4LOCAL.md](FP4LOCAL.md) "Sampling temperature".
+
 ## Layout
 
 | Path | What |
