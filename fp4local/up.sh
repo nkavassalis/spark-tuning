@@ -8,13 +8,20 @@
 # If API_KEY is set (cluster.env), the head serves with --api-key and every client must send it (benchmark lock-out).
 # LIVE=1: production mode for agents. No API key (like config C), and served as `qwen3.8-flash-next` too, so pi's existing
 #   `qwen` provider works unchanged.
-# Knobs (env): SPEC_TOKENS (4), MAX_SEQS (8), MAX_BATCHED (4096), GMU (0.8), PLE_MEMORY (disk), LIVE (0),
+# Knobs (env): SPEC_TOKENS (4), MAX_SEQS (8), MAX_BATCHED (4096), GMU (0.8; 0.84 with LIVE=1), PLE_MEMORY (disk; device with
+#   LIVE=1), LIVE (0),
 #   EP (0; 1 = --enable-expert-parallel, as config C runs).
+#   PLE_MEMORY: disk (recipe; io_uring reads from NVMe), ram/shared (mapped host), device (table in GPU memory). This build's
+#   VLLM_PLE_TABLE_MEMORY rejects "device", so device goes in as --additional-config '{"ple_table_memory":"device"}'.
 set -euo pipefail
 . "$(dirname "$0")/lib.sh"
 SPEC_TOKENS=${SPEC_TOKENS:-4}; MAX_SEQS=${MAX_SEQS:-8}; MAX_BATCHED=${MAX_BATCHED:-4096}
-GMU=${GMU:-0.8}; PLE_MEMORY=${PLE_MEMORY:-disk}; LIVE=${LIVE:-0}; EP=${EP:-0}
+LIVE=${LIVE:-0}; EP=${EP:-0}
+if [ "$LIVE" = 1 ]; then GMU=${GMU:-0.84}; PLE_MEMORY=${PLE_MEMORY:-device}   # live: PLE table in memory (FP4LOCAL.md, 2026-10-21)
+else GMU=${GMU:-0.8}; PLE_MEMORY=${PLE_MEMORY:-disk}; fi                       # benchmark mode: nvidia's recipe
 EPARG=""; [ "$EP" = 1 ] && EPARG="--enable-expert-parallel"
+PLE_ENV="export VLLM_PLE_TABLE_MEMORY=\"$PLE_MEMORY\""; PLEARG=""
+if [ "$PLE_MEMORY" = device ]; then PLE_ENV=""; PLEARG="--additional-config '{\"ple_table_memory\":\"device\"}'"; fi
 NAMES=$SERVED_NAME
 if [ "$LIVE" = 1 ]; then NAMES="qwen3.8-flash-next $SERVED_NAME"; API_KEY=""; fi
 
@@ -39,7 +46,7 @@ fi
 serve_script() {   # serve_script <rank> <extra args>; nvidia's DGX Spark env, verbatim
   cat <<EOS
 set -e
-export VLLM_PLE_TABLE_MEMORY="$PLE_MEMORY"
+$PLE_ENV
 export B12X_DISK_BACKEND="io_uring"
 export CUTE_DSL_ARCH="sm_121a"
 export SAFETENSORS_FAST_GPU="1"
@@ -67,7 +74,7 @@ exec vllm serve /root/.cache/huggingface/hub/models--nvidia--Qwen3.8-Flash-Next-
   --no-enable-flashinfer-autotune --mm-encoder-tp-mode data \\
   --reasoning-parser qwen3 --tool-call-parser qwen3_xml --enable-auto-tool-choice \\
   --compilation-config '{"pass_config":{"fuse_act_quant":true}}' \\
-  --gpu-memory-utilization $GMU $EPARG \$KEY $2
+  --gpu-memory-utilization $GMU $EPARG $PLEARG \$KEY $2
 EOS
 }
 

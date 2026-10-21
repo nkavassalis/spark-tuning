@@ -49,6 +49,8 @@ the live model**, at MTP K=2 (fastest K with thinking on and under concurrency),
 bigger KV pool, the memory headroom and the cheap warm hits worth the slower raw speed. It's served as `qwen3.8-flash-next` with no
 API key, so pi needed no change. Expert parallelism can't be used with this checkpoint, and an 8192 prefill batch changed nothing
 (see "Tuning attempts"). `fp4local/down.sh --qwen` goes back to config C in ~11 min.
+**2026-10-21:** live mode now keeps the PLE n-gram table in GPU memory (GMU 0.84) instead of reading it from NVMe. That gives +1.5% decode and
++4–5% cold prefill, at the cost of a smaller KV pool (4.54M tokens) and less free memory (8.5 / 12.2 GiB); the table above is the disk config. See "PLE n-gram table in GPU memory".
 
 ---
 
@@ -61,7 +63,7 @@ Scripts: `fp4local/` (`lib.sh`, `setup_nodes.sh`, `up.sh`, `down.sh [--qwen]`), 
 | Download | `hf download` into the head's HF cache at the pinned revision: 102 GB, ~8 min. **`huggingface_hub` 2.x stores file contents in a hub-wide store** (`~/.cache/huggingface/hub/blobs/xx/<sha256>`) behind two levels of relative symlinks; the per-model `blobs/` holds only links. `setup_nodes.sh` rsyncs both trees to the worker (480 MB/s over CX7, 3.5 min). |
 | Image | `eugr/spark-vllm-b12x@sha256:03a95654…` on both nodes (9.7 GB). Flags such as `--nnodes/--headless` exist in this build; it needs a GPU attached even to print `--help`. |
 | Launch | `fp4local/up.sh`: stops Qwen, refuses if any other container is running, drops the page cache, head then headless worker. Container `vllm_fp4local`, caches in `~/fp4local-cache`. |
-| Serving config | **nvidia's DGX Spark recipe from the model card, verbatim** (env and flags), except TP 1 → 2 plus the multi-node and NCCL/CX7 settings config C uses. That means: b12x GEMM/MoE/GDN backends, `--load-format b12x`, `--quantization modelopt_mixed`, MTP **K=4**, PLE table on **disk** (`VLLM_PLE_TABLE_MEMORY=disk`), block size 16, `max-num-batched-tokens` 4096, `max-num-seqs` 8, GMU 0.8, 262K context, fp8 KV, **torch.compile on** (`VLLM_USE_AOT_COMPILE=1` + `fuse_act_quant` pass). |
+| Serving config | **nvidia's DGX Spark recipe from the model card, verbatim** (env and flags), except TP 1 → 2 plus the multi-node and NCCL/CX7 settings config C uses. That means: b12x GEMM/MoE/GDN backends, `--load-format b12x`, `--quantization modelopt_mixed`, MTP **K=4**, PLE table on **disk** (`VLLM_PLE_TABLE_MEMORY=disk`; **in GPU memory since 2026-10-21 in live mode**, see "PLE n-gram table in GPU memory"), block size 16, `max-num-batched-tokens` 4096, `max-num-seqs` 8, GMU 0.8, 262K context, fp8 KV, **torch.compile on** (`VLLM_USE_AOT_COMPILE=1` + `fuse_act_quant` pass). |
 | Parallel layout | **TP=2 only, no expert parallelism.** Config C runs TP=2 **+ EP** (each GPU holds half the experts whole). Every speed comparison below is therefore also TP-only vs TP+EP; EP isn't available on this build (see "Why no expert parallelism"). |
 | torch.compile | AGENTS.md forbids it without asking because a compile-time memory spike once hung the head. **Approved by the user for this test**, on the condition that the Qwen server was stopped first. A watchdog sampled `MemAvailable` on both nodes every 5 s and would have killed the container below 2 GiB. The lowest reading during boot and compile was **15.5 GiB**: weights are 36.3 GiB per node at TP=2, so the old overcommit risk wasn't close. |
 | Lock-out | The head served with `--api-key` (random key, only in the untracked `cluster.env` and a mode-600 file on the node). Unauthenticated requests got 401, **including `/metrics`** in this build. All harness scripts send `Authorization: Bearer $API_KEY` when `API_KEY` is set (`scripts/bench_decode.py`, `quality/*.py`, both runners). `num_requests_running` was 0 before and after every speed run. |
@@ -271,6 +273,39 @@ KV pool: 5.11M (K=4), 5.31M (K=3), 5.49M (K=2) tokens.
 | `--enable-expert-parallel` (config C uses EP) | **Not possible on this build.** Both ranks fail at startup with `NotImplementedError: NVFP4-CSF supports TP without EP/DP`. It's a software limitation in the b12x vLLM build, not the scale format; see "Why no expert parallelism" below. |
 | `max-num-batched-tokens` 4096 → 8192 (config C's value) | No change worth having: recipe bench C1/C3/C6 56.8 / 117.8 / 182.9 (4096: 56.5 / 115.5 / 186.9), thinking-on grid within ±5%, cold prefill +2–3% (2,594 / 2,813 / 2,787 / 2,729 tok/s). It costs 6% of the KV pool (5.18M vs 5.49M tokens). Kept 4096. Files: `results/fp4local/*k2-mb8k*`. |
 
+### PLE n-gram table in GPU memory instead of on NVMe (2026-10-21): live since
+
+The PLE n-gram table (layer 2, 50.6 GiB NVFP4, TP-sharded) is the one part of the model nvidia's recipe serves from disk:
+`VLLM_PLE_TABLE_MEMORY=disk` makes b12x read rows from the NVMe with io_uring on every step, about 8 KB per token, outside the CUDA
+graph. Moving it into GPU memory (`PLE_MEMORY=device`, GMU 0.80 → 0.84 to give some KV back) was measured back to back on one
+day: both boots K=2, API key locked, `num_requests_running` 0 before and after each suite.
+
+| | PLE on disk, GMU 0.80 (recipe) | **PLE in memory, GMU 0.84** | change |
+|---|---|---|---|
+| Decode, thinking off, 6-cell mean (tok/s) | 63.3 | **64.3** | +1.5%, all 6 cells (+1.4 to +1.8%) |
+| Decode, thinking on, 6-cell mean (tok/s) | 49.7 | **50.4** | +1.6%, all 6 cells (+1.0 to +2.4%) |
+| MTP acceptance (mean accepted length) | same | same | identical to 2 decimals in every cell |
+| Engine steps/s (decode ÷ acceptance) | 23.6–24.8 | 24.0–25.3 | the whole gain |
+| Recipe bench aggregate C1 / C3 / C6 | 55.9 / 113.0 / 182.1 | **57.6 / 115.6 / 187.5** | +2–3% (C5 +0.2%) |
+| Cold prefill 2K / 8K / 32K / 64K (tok/s) | 2,587 / 2,733 / 2,732 / 2,687 | **2,681 / 2,868 / 2,859 / 2,813** | +4–5% (64K TTFT 23.5 → 22.5 s) |
+| NVMe reads by the worker processes over the suite | 6.8 GB head / 11.2 GB worker | **1 MB / 1 MB** | — |
+| Weights in GPU memory per node | 36.26 GiB | 49.67 GiB | +13.4 GiB |
+| KV pool | 5,500,470 tokens | **4,540,197** tokens | −17% (still 17.3× a full 262K request; config C: 4.25M) |
+| OS-available memory while serving (head / worker) | 14.2 / 17.2 GiB (one sample, idle) | **8.5 / 12.2 GiB** (lowest over boot + suite) | still above config C's ~4–7 GiB |
+
+The speed-up is small but consistent: the device run is faster in all 12 decode cells, and in nearly every individual repeat.
+Acceptance is identical, so the output is unchanged and the gain is all step time: the disk lookup was a few percent of each step,
+and of each prefill chunk. Without the GMU bump, the table would come out of the KV pool (~4.0M tokens at 0.80: 13.4 GiB at
+~9.3 KB per token; not booted to check). **User's decision: worth it, live since 2026-10-21** (`LIVE=1` now defaults to
+`PLE_MEMORY=device GMU=0.84`; benchmark mode keeps nvidia's disk / 0.80).
+
+Gotcha: this build's `VLLM_PLE_TABLE_MEMORY` accepts only `ram`, `disk` and `shared`. `device` is rejected at startup
+(`fp4local/up.sh` failed twice this way at ~80 s, with 111 GiB free, before this was found). Device is reached through
+`--additional-config '{"ple_table_memory":"device"}'`, which `up.sh` now passes. (With the variable unset, NVFP4 also defaults to
+device.) Not tried: `ram` (mapped host memory, outside the GMU budget). On GB10 it's the same physical LPDDR5X, so it would
+not obviously beat device.
+Files: `results/fp4local/ple-{disk,device}-bench_decode-{thinkoff,default}-2026-10-21.json`, `bench-ple-{disk,device}-tp2.{json,md}`.
+
 ### Why no expert parallelism (it's the software, not the format)
 
 Read from the source in the pinned image (`eugr/spark-vllm-b12x@sha256:03a95654…`, vLLM `0.1.dev21830+g8244d1c44`), 2026-10-16.
@@ -436,12 +471,13 @@ that a request's own `temperature` still wins is vLLM's usual default handling, 
 
 ```bash
 fp4local/setup_nodes.sh     # idempotent: 102 GB download + rsync to the worker, image pull
-LIVE=1 SPEC_TOKENS=2 fp4local/up.sh   # the live config (no key, served as qwen3.8-flash-next too)
+LIVE=1 SPEC_TOKENS=2 fp4local/up.sh   # the live config (no key, served as qwen3.8-flash-next too; PLE in memory, GMU 0.84)
 fp4local/up.sh              # benchmark mode: API_KEY lock-out; stops Qwen, ~12 min cold (~5 min warm); http://<head>:8000/v1, model qwen3.8-flash-next-fp4local
 fp4local/down.sh --qwen     # back to config C (~11 min)
 ```
 
-Knobs: `SPEC_TOKENS` (default 4, nvidia's), `MAX_SEQS`, `MAX_BATCHED`, `GMU`, `PLE_MEMORY` (`disk`). With `API_KEY` set in
+Knobs: `SPEC_TOKENS` (default 4, nvidia's), `MAX_SEQS`, `MAX_BATCHED`, `GMU` (0.80; 0.84 with `LIVE=1`), `PLE_MEMORY`
+(`disk`; `device` with `LIVE=1`; also `ram`/`shared`). With `API_KEY` set in
 `cluster.env`, `up.sh` locks the server and every client must send it.
 
 ## Caveats / not measured
@@ -451,8 +487,8 @@ Knobs: `SPEC_TOKENS` (default 4, nvidia's), `MAX_SEQS`, `MAX_BATCHED`, `GMU`, `P
   greedy while the thinking runs sample (0.6 / 0.95 / 20), so its LCB 3/10 is not a like-for-like comparison.
 - TP=2 only, as asked. nvidia validated TP=1 on a single Spark; that wasn't run, so whether one Spark is enough for this
   workload is unmeasured.
-- nvidia's recipe was used as written for everything except TP and K (EP impossible, 8192 batch no gain, above). Not tried: PLE in
-  memory (`PLE_MEMORY` knob), `--performance-mode interactivity`.
+- nvidia's recipe was used as written for everything except TP and K (EP impossible, 8192 batch no gain, above). PLE in memory was
+  measured and adopted on 2026-10-21 (above). Not tried: `PLE_MEMORY=ram`, `--performance-mode interactivity`.
 - Live since 2026-10-16 ~16:30 UTC with no Docker restart policy (same as config C): after a node reboot, run `LIVE=1 SPEC_TOKENS=2
   fp4local/up.sh`. Multi-agent stall behaviour (QWEN.md) under the new server is not yet observed.
 - The b12x build is a community nightly, not upstream vLLM. Pinned by digest here; behaviour can change between nightlies.

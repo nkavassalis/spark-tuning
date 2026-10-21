@@ -13,7 +13,8 @@ Public notes, scripts and measured results from tuning LLM serving on a 2-node D
 - nvidia Qwen3.8-Flash-Next-FP4-Local (QAD NVFP4 + MXFP8, community b12x vLLM build): `FP4LOCAL.md`. Benchmarked 2026-10-16 at TP=2:
   ties or beats config C on every quality test; 5% slower with thinking on (K=2) and ~20% less aggregate at 3–6 streams, but a
   ~30% bigger KV pool (5.5M tokens), 14–18 GiB free per node and zero-recompute warm cache hits. **The live model since 2026-10-16**
-  (user's call), at MTP K=2: `LIVE=1 SPEC_TOKENS=2 fp4local/up.sh`. Reasoning effort (2026-10-18, FP4LOCAL.md): template accepts
+  (user's call), at MTP K=2: `LIVE=1 SPEC_TOKENS=2 fp4local/up.sh`. Since 2026-10-21 live mode holds the PLE n-gram table in GPU
+  memory at GMU 0.84 instead of reading it from NVMe (+1.5% decode, +4–5% cold prefill, KV 4.54M tokens; FP4LOCAL.md). Reasoning effort (2026-10-18, FP4LOCAL.md): template accepts
   `low`/`medium`/`xhigh`, **omitted = `xhigh`** (every pre-10-18 Qwen thinking number), pi sends `medium`; `low`/`medium` tie `xhigh`
   on quality and are ~3× faster on easy problems. No EP on the current b12x build: a
   software limitation (b12x MoE backend + CSF scratch design), not the scale format; see FP4LOCAL.md "Why no expert parallelism".
