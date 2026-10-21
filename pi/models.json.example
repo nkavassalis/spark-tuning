@@ -16,7 +16,7 @@
             "text",
             "image"
           ],
-          "contextWindow": 262000,
+          "contextWindow": 262144,
           "maxTokens": 32000,
           "cost": {
             "input": 0,

@@ -1,24 +1,25 @@
 #!/usr/bin/env python3
 """stage_pi_compaction.py: apply / verify / revert the client-side compaction staging documented in PI.md.
 
-Why this exists: on a 262K-context model pi's defaults (`reserveTokens` 16,384) let sessions grow to ~246K before
-compacting, so a prefix-cache miss costs ~50 s of exclusive prefill (measured, see PI.md). Reserving more headroom
-makes pi compact earlier, which caps the worst-case prompt. This touches only the pi client config — no server change,
-reversible, and it does not affect output quality.
+Why this exists: pi compacts when context > contextWindow - reserveTokens and then keeps only the last
+keepRecentTokens verbatim. 2026-10-15 (config C, several agents) staged 65536 / 20000 to cap cold-prefill stalls.
+2026-10-21 (FP4-Local: warm hits recompute 0, mostly one user) moved to 40000 / 40000: compacts at ~222K, keeps twice
+the recent work, and the reserve still covers pi's maxTokens 32000 + its 4096 safety margin (see PI.md). This touches
+only the pi client config: no server change, reversible.
 
   scripts/stage_pi_compaction.py --check            # report current values and the resulting threshold
   scripts/stage_pi_compaction.py                    # apply (backup first, idempotent)
   scripts/stage_pi_compaction.py --revert           # restore the newest backup matching settings.json.bak-*
-  scripts/stage_pi_compaction.py --reserve 98304    # a tighter cap (~164K threshold)
+  scripts/stage_pi_compaction.py --reserve 65536 --keep 20000   # the 2026-10-15 values
 
 Stdlib only. Refuses to touch a file it cannot parse, and never rewrites the file if the values already match.
 """
 import argparse, glob, json, os, shutil, sys
 from pathlib import Path
 
-TARGET_RESERVE = 65536
-TARGET_KEEP = 20000
-DEFAULT_WINDOW = 262144          # context window of the model currently served (Qwen config C)
+TARGET_RESERVE = 40000           # >= pi maxTokens 32000 + CONTEXT_SAFETY_TOKENS 4096, so a full response always fits
+TARGET_KEEP = 40000
+DEFAULT_WINDOW = 262144          # --max-model-len of the served model (FP4-Local and config C); pi/models.json.example uses it too
 
 
 def settings_path():
@@ -52,7 +53,7 @@ def main():
     ap.add_argument("--revert", action="store_true")
     a = ap.parse_args()
     p = settings_path()
-    backs = sorted(glob.glob(str(p) + ".bak-*"))
+    backs = sorted(glob.glob(str(p) + ".bak-*"), key=os.path.getmtime)   # newest last, whatever the suffix
 
     if a.revert:
         if not backs:

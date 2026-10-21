@@ -63,19 +63,41 @@ Practical consequences for the client, in order:
 
 ## Tuning the client (no server restart needed)
 
-Staged on 2026-10-15 in `~/.pi/agent/settings.json` (backup `settings.json.bak-2026-10-15`):
+Current values, applied 2026-10-21 in `~/.pi/agent/settings.json` with `scripts/stage_pi_compaction.py` (backup
+`settings.json.bak-20261021-*`), together with `contextWindow` 262144 in `models.json` (the server's `--max-model-len`):
 
 ```json
-"compaction": { "enabled": true, "reserveTokens": 65536, "keepRecentTokens": 20000 }
+"compaction": { "enabled": true, "reserveTokens": 40000, "keepRecentTokens": 40000 }
 ```
 
-Effect: compaction now fires above **196,608** context tokens instead of 245,760, capping the worst-case prompt (and
-therefore the worst-case miss) by ~20%, and `keepRecentTokens` 30,000 → 20,000 keeps post-compaction prompts smaller.
-Revert by restoring the backup, or with `scripts/stage_pi_compaction.py --revert`. That script also does `--check`
-and a fresh `--reserve N` staging (idempotent, verifies after writing, refuses a file it cannot parse; apply/revert/
-idempotency/refusal exercised on a copy 2026-10-15). The values above were first applied by hand, so the file and the
-script agree. Deliberately not tighter: too-small sessions lose work context, and the warm-hit cost is flat in prompt
-size, so this is about tail risk only.
+How pi uses them (pi 0.87.1 `docs/compaction.md`): compaction fires when `contextTokens > contextWindow - reserveTokens`,
+summarizes everything older than the last `keepRecentTokens`, and continues from summary + those recent messages. The
+summarizer sees older tool results truncated to 2,000 characters each.
+
+| | 2026-10-15 (config C, several agents) | **2026-10-21 (FP4-Local, mostly one user)** |
+|---|---|---|
+| `reserveTokens` | 65,536 → compacts above 196,608 | **40,000 → compacts above 222,144** |
+| `keepRecentTokens` | 20,000 (was 30,000) | **40,000** |
+| Why | cap the worst cold prefill: a ~180K miss froze config C ~50 s for every agent | the user found sessions cut off too soon; the stall that justified the tight cap is mostly gone |
+
+Why the change is safe on FP4-Local, and what it costs:
+- Warm hits recompute 0 tokens at any size and decode is nearly flat in context (61-63 tok/s at 128K vs 64 at 1K, thinking
+  off), so a bigger context costs nothing on a normal turn.
+- What grows is a genuinely cold prompt (thinking-level change, instruction-file edit, a resume whose prompt head
+  changed, compaction itself). *Estimate* from the measured ~2,668 tok/s at 32-64K: worst case ~83 s at 222K instead of
+  ~74 s at 196K. Prefill rate above 64K is not measured.
+- The first turn after a compaction is cold but small: summary + 40K, *estimated* ~15 s instead of ~8 s.
+- **The reserve has a floor:** pi clamps a response's `max_tokens` to `contextWindow - context - 4096`
+  (`CONTEXT_SAFETY_TOKENS`). With `maxTokens` 32000, any reserve under 36,096 shortens long thinking answers near the
+  threshold; pi's default 16,384 would. 40,000 always fits a full 32K response.
+- Not measured: how long a compaction takes (its summary request re-sends the summarized span in another format, so it
+  is probably a cold prefill of that span), and model quality between 128K and 222K (the long-context test stops at 128K,
+  FP4-Local 97.2%).
+
+Revert with `scripts/stage_pi_compaction.py --revert` (newest backup by mtime) or re-stage the old values with
+`--reserve 65536 --keep 20000`. The script also does `--check` (idempotent, verifies after writing, refuses a file it
+cannot parse). If several agents share the server again and cold stalls come back, the tighter 10-15 values are the
+first thing to restore.
 
 Free behaviour changes, in rough order of value:
 - Don't change model, thinking level or tool set on a long session — each is a full miss at that size.
@@ -189,8 +211,8 @@ warm; it is not a speed number (single run each, other traffic on the server not
 Mitigations, cheapest first: batch injected-file edits to session boundaries, since one edit is charged to every
 session that restarts afterwards; keep one thinking level per session (switching back to an earlier level is warm only
 while that prefix is still cached); keep injected files short (this repo's `AGENTS.md` is ~17K chars and sits *ahead of
-the whole conversation*, so it is paid on every cold prefill); prefer continuing a session over restarting one; leave
-`compaction.reserveTokens` at 65,536 so a resume's prompt has a bound.
+the whole conversation*, so it is paid on every cold prefill); prefer continuing a session over restarting one; keep
+`compaction.reserveTokens` set (40,000 since 2026-10-21) so a resume's prompt has a bound.
 
 Probe caveat learned the hard way: the probe's nonce is deterministic (`--seed 7`) so saved results can be re-measured,
 but that also means two agents probing concurrently **share prefixes** - one of my "cold" rows came back 74.5% cached
@@ -212,12 +234,12 @@ replace `<head>`). Two things in it were checked on 2026-10-19 with pi 0.87.1:
 | `"samplingParams": {"temperature": 0.6}` | without it the server applies 1.0, which lost on hard problems ([FP4LOCAL.md](FP4LOCAL.md) "Sampling temperature") | capture server: this form sends `"temperature": 0.6`; a top-level `"temperature": 0.6` on the model is accepted and **silently dropped** |
 | `"input": ["text", "image"]` | the checkpoint has a vision tower and the server serves it | `pi -p @image.png` against the live server, answered correctly (smoke test only) |
 
-`contextWindow` 262000 sits under the server's 262,144.
+`contextWindow` 262144 is the server's `--max-model-len` (pi keeps its own 4,096-token margin under it).
 
 ## Open / unverified
 
-- The `reserveTokens` staging is applied and verified in the config file, but has not yet been observed firing in a
-  real session — nobody has crossed 196K since it was set.
+- The compaction values are applied and verified in the config file (2026-10-21: 40,000 / 40,000, threshold 222,144),
+  but compaction has not yet been observed firing in a real session on this server.
 - Session-level traces of the concurrent agents live on another host, so per-session prompt growth was inferred from
   server-side histograms, not from their session logs.
 - Resume behaviour is now measured end to end (2026-10-18, above) for no change, a context-file edit and a thinking-level

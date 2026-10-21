@@ -127,8 +127,8 @@ with thinking off in every cell measured.
 
 **Read `PI.md` before investigating a "slow/stalling cluster" report.** The 2026-10-15 investigation found the server
 clean and the load shape client-side: pi re-sends whole histories (a third of turns >100K tokens), and a prefix-cache
-miss costs ~50 s of exclusive prefill. Staged there on 2026-10-15: pi `compaction.reserveTokens` 65536 /
-`keepRecentTokens` 20000 (compacts above 196,608 instead of 245,760), applied and reversible with
+miss costs ~50 s of exclusive prefill. Client compaction: 2026-10-15 staged `reserveTokens` 65536 / `keepRecentTokens` 20000 (config C, several agents);
+**2026-10-21 relaxed to 40000 / 40000** (compacts above 222,144; reserve must stay >= maxTokens 32000 + 4096), applied and reversible with
 `scripts/stage_pi_compaction.py --check|--revert`.
 
 ## Conventions
@@ -150,8 +150,8 @@ miss costs ~50 s of exclusive prefill. Staged there on 2026-10-15: pi `compactio
   the recurring cost - warm hits now recompute **0** (independently re-measured 2026-10-16: 96,559-token prompt, 0
   recomputed, 0.35 s end to end, `results/fp4local/fp4local-k2-mycheck-prefix-96000-2026-10-16.json`).
   **Residual risk:** a genuinely *cold* prompt is now ~36% slower per token (2,668 vs 3,640 tok/s), so a 180K cold miss
-  would monopolise the engine ~68 s instead of 50 s. Client-side mitigation staged (pi `compaction.reserveTokens`
-  65536, see `PI.md`). The 2026-10-15 A/B plan (batched-tokens 4096 + `--long-prefill-token-threshold` + GMU 0.80) is
+  would monopolise the engine ~68 s instead of 50 s. Client-side mitigation: pi compaction (65536 on 2026-10-15,
+  relaxed to 40000 on 2026-10-21 for mostly single-user use; restore 65536 if multi-agent stalls return; see `PI.md`). The 2026-10-15 A/B plan (batched-tokens 4096 + `--long-prefill-token-threshold` + GMU 0.80) is
   **retired**: FP4-Local already runs 4096/0.8 and `FP4LOCAL.md` shows 8192 gains nothing. `--long-prefill-token-threshold`
   is untried on both models and is the only remaining server lever if giant-cold-prompt stalls show up.
   Async scheduling stays ON - demoted to untested hypothesis, no longer needed.
