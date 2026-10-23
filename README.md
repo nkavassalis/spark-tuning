@@ -45,7 +45,7 @@ and the 300K window.
 | `SGLANG.md` | can SGLang serve FP4-Local instead of the b12x vLLM build? Not yet (CSF scales, NVFP4 PLE table); researched, not measured |
 | `scripts/` | Qwen benchmark / health scripts (`bench_decode.py`, `spec_acceptance.py`, `check_cluster.sh`, `mtp_ab.sh`, `prefix_probe.py` for prefix-cache behaviour, `watch_stalls.sh` stall sampler, `stage_pi_compaction.py` for the pi client staging) |
 | `PI.md` | the client side: how pi's request shape produces stalls, and the client-side tuning |
-| `quality/` | quality-eval harness (NLL, HumanEval+/MBPP+, GSM8K, thinking-mode, long context) |
+| `quality/` | quality-eval harness (NLL, HumanEval+/MBPP+, GSM8K, thinking-mode, long context, time to solve) |
 | `configs/` | diffs/patches applied to the Qwen deployment repo |
 | `mimo/` | MiMo setup / switch scripts, tool-call-cap proxy, functional tests |
 | `glm/` | GLM setup / switch scripts (`setup_nodes.sh`, `up.sh`, `down.sh`) and the in-container vLLM patch (`patch_vllm.py`) |
@@ -93,12 +93,13 @@ Node 18+ only if you want to run the proxy unit tests locally. The nodes need Do
 ```bash
 mimo/setup_nodes.sh      # (re)provision: recipe checkout, ~178 GB weights on both nodes, patches. Does not stop Qwen.
 mimo/up.sh               # stop Qwen, start MiMo + tool-call-cap proxy (~11-15 min)
-mimo/down.sh --qwen      # stop MiMo, relaunch Qwen (~11 min)
+mimo/down.sh --qwen      # stop MiMo, relaunch config C (~11 min)
+mimo/down.sh --fp4local  # stop MiMo, relaunch the live FP4-Local
 GLM_VARIANT=E224 glm/setup_nodes.sh && GLM_VARIANT=E224 glm/up.sh   # GLM-5.3-Flash (not installed now); glm/down.sh --qwen to go back
 fp4local/up.sh               # nvidia FP4-Local (installed); LIVE=1 serves it as qwen3.8-flash-next with no key; fp4local/down.sh --qwen
 glmfp4/setup_nodes.sh && DEFAULT_EFFORT=high SPEC_TOKENS=3 glmfp4/up.sh   # nvidia GLM FP4-Local (not installed now); glmfp4/down.sh --fp4local
 
-MiMo is **not installed** on the nodes right now (removed 2026-10-07); `setup_nodes.sh` rebuilds it from scratch.
+MiMo is **not installed** on the nodes right now (removed 2026-10-07, reinstalled and removed again 2026-10-23); `setup_nodes.sh` rebuilds it from scratch.
 ```
 
 ## Tests

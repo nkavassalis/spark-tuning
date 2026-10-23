@@ -26,6 +26,7 @@ proxy); the raw endpoint is `http://<head>:8888/v1`; model id `mimo-v2.6-flash`.
 | Functional checks | chat, tool-call parsing, storm guard: all pass (`mimo/test_mimo.py`) |
 | Quality (thinking off, greedy) | HumanEval+ 88.4, MBPP+ 74.3, GSM8K 96.4 (Qwen C: 93.3 / 79.9 / 96.4) |
 | Quality (thinking) | HumanEval+ 89.0, LiveCodeBench 46.2 (Qwen C: 92.7 / 41.2); long context 90.3% (Qwen 95.1%) |
+| Temperature 0.6 vs server 1.0 (2026-10-23) | thinking off: **MBPP+ 75.4 vs 70.6 (p=0.011)**, HumanEval+ tie; thinking on: tie. 1.0 is 1.3–1.7× slower to solve. Storm trade-off: see "Sampling temperature" |
 | vs Qwen config C, single-user code, both thinking off | Qwen is 1.3–1.8× faster at 1K and 2.2–2.7× faster at 128K |
 
 On this cluster MiMo is slower than the tuned Qwen deployment on everything we measured except 2K prefill. It is no
@@ -146,17 +147,78 @@ A wider single-run grid (T=0 and 0.6, 1K and 64K, including prose) is in
 
 ---
 
+## Sampling temperature: 0.6 vs the server's 1.0 (2026-10-23)
+
+MiMo was reinstalled for one day to answer a single question: does temperature 0.6 (Qwen's setting) change MiMo's quality, compared
+with the checkpoint's 1.0 that the server applies to any request that sends nothing? The two thinking-off runs before this were
+greedy, so the temperature MiMo actually runs at in pi (server default 1.0, thinking off) had never been measured. Every run used the
+same harness, data and sandbox as 2026-10-07, top_p 0.95, no top_k, and the server's rep-pen 1.05 ("as deployed"). Each problem
+carries a fixed seed (`crc32` of the prompt or task id), so both temperatures draw the same random stream per problem. One run each,
+paired McNemar. The thinking-off sampled mode is new: `NOTHINK_TEMP` / `NOTHINK_TOP_P` in `quality/run_quality.sh` (unset = the old
+greedy request, byte for byte).
+
+**Quality** (full sets, concurrency 8, 16K budget with thinking on):
+
+| Test | 2026-10-07 (off: greedy; on: 1.0) | **0.6** | **1.0** | 0.6 vs 1.0 (lost / gained at 1.0) |
+|---|---|---|---|---|
+| HumanEval+, thinking off | 88.4 | 84.8 | 86.0 | 8 / 10, p=0.82 |
+| **MBPP+, thinking off** | 74.3 | **75.4** | 70.6 | 32 / 14, **p=0.011** |
+| HumanEval+, thinking on | 89.0 | 92.1 | 92.1 | 4 / 4, p=1.0 |
+| LiveCodeBench, thinking on | 46.2 | 48.8 | 45.0 | 5 / 2, p=0.45 |
+
+- **Thinking off, 1.0 is measurably worse on MBPP+**: −4.8 points against 0.6 (p=0.011) and −3.7 against greedy (p=0.076).
+  HumanEval+ shows nothing at any temperature.
+- **Thinking on, temperature doesn't matter that we can see.** The 1.0 rerun reproduced the 0.6 HumanEval+ score exactly. Against
+  2026-10-07 at identical settings and seeds it moved 89.0 → 92.1 (3 / 8 flips, p=0.27). That is the run-to-run spread, about ±3
+  points: the first, apparently better, 0.6 result was this noise, not temperature.
+- Lengths barely move: thinking-off HumanEval+ / MBPP+ 323 / 259 tokens at 0.6, 352 / 288 at 1.0 (greedy 327 / 253). Thinking on:
+  742 / 9,331 at 0.6, 792 / 9,855 at 1.0. About half of LiveCodeBench hits the 16K cap at every setting (38 and 40 of 80).
+
+**Time to solve** (`quality/run_tts.sh`: one problem at a time, wall clock per request, 16K budget, nothing else on the server; the
+COMPARISON.md subsets: every 4th HumanEval+ problem = 41, every 8th LiveCodeBench = 10):
+
+| Setting | HE+ solved / 41 | s per problem | s per solved | mean tokens | tok/s | LCB solved / 10 | s per problem | mean tokens |
+|---|---|---|---|---|---|---|---|---|
+| thinking off, **0.6** | 34 | **7.2** | **8.7** | 356 | 49.2 | 1 | **110** | 4,069 |
+| thinking off, 1.0 (server default) | 35 | 9.5 | 11.1 | 411 | 43.3 | 0 | 160 | 4,327 |
+| thinking on, **0.6** | 37 | **21.8** | **24.1** | 904 | 41.5 | 1 | **414** | 14,199 |
+| thinking on, 1.0 | 37 | 37.4 | 41.4 | 1,205 | 32.2 | 2 | 467 | 13,134 |
+
+**At 1.0 MiMo is slower to the same answer**: 1.3× (thinking off) and 1.7× (thinking on) longer per HumanEval+ problem, at the same
+solve count. Two effects stack: it writes more tokens (+15–33%), and it writes them more slowly (43 vs 49 and 32 vs 42 tok/s,
+prefill included). The slower rate is consistent with DFlash drafts being accepted less often at a higher temperature, as with
+Qwen's MTP. That is inferred: draft acceptance wasn't recorded. n=10 can't separate LiveCodeBench solve counts.
+
+**What this means for pi.** pi with no `samplingParams` runs MiMo thinking off at 1.0, the slowest and, on MBPP+, the worst setting
+measured here. 0.6 would be better on both. **But the recipe measured 0.6 making tool-call storms more frequent** (4/4 vs 2/4
+reproductions, see "Tool-call loops" above), and nothing here tests storms: these are single-turn prompts with no tools. So 0.6 is a
+trade (better code, faster, more storm risk), not a free win. The server default stays at 1.0, and the storm rule above still
+stands. Untested: anything between 0.6 and 1.0, a storm reproduction at 0.6 with the tool-call cap in place, and GSM8K / long
+context at either temperature.
+
+Run on the worker with `API=http://<head-link-ip>:8888 MODEL=mimo-v2.6-flash` and, per row:
+`TASKS="humaneval mbpp" NOTHINK_TEMP=0.6 NOTHINK_TOP_P=0.95 quality/run_quality.sh <label>`,
+`TASKS="humaneval lcb" THINK_TEMP=0.6 THINK_TOP_P=0.95 THINK_TOP_K= quality/run_deep.sh <label>`,
+`THINK_KWARGS='{"chat_template_kwargs":{"enable_thinking":false}}' THINK_TEMP=0.6 THINK_TOP_P=0.95 THINK_TOP_K= quality/run_tts.sh <label>`
+(drop `THINK_KWARGS` for thinking on). Files: `results/quality/M-t{06,10}-{off,deep}/`, `results/quality/TTS-mimo-{off,on}-t{06,10}/`.
+Lowest free memory over the whole day: 3.5 GiB (memory guard at 1.5 GiB never fired).
+
 ## What is on the nodes / how it was removed
 
-Removed on 2026-10-07 (`rm -rf` of each node's `models/MiMo-V2.6-Flash-RL`, `mimo-cache`, `mimo-recipe`,
-`mimo-toolcap`, `mimo-bench`, `mimo-*.log`, the `hf` venv, plus `docker rmi` of the recipe image and `node:22-alpine`;
-disk on the head back to its pre-MiMo 360 GB free). Nothing MiMo-specific is left on either Spark. Before deleting,
-every MiMo result file on the nodes was checked byte-identical against this repo (bench JSONs, all 20 quality
-files), so nothing unique was lost.
+**Reinstalled 2026-10-23 for the temperature study above, then removed again the same day.** Removed: each node's
+`models/MiMo-V2.6-Flash-RL`, `mimo-cache`, `mimo-recipe`, `mimo-toolcap`, `mimo-setup.log`, plus `docker rmi` of the recipe image
+and `node:22-alpine`. Disk back to 508 GB free on the head and 3.2 TB on the worker. `~/.venv-hf` stays: `fp4local/` and `glmfp4/`
+setup use it too. Every result file was copied into this repo before removal. (First removal: 2026-10-07, same list plus the venv.)
 
-Gotcha hit during cleanup: the recipe's audio-lib step runs `docker run` as root, so `mimo-cache/pyextra` was
-root-owned and `rm -rf` failed. Fixed with a privileged container chown; `mimo/setup_nodes.sh` now chowns
-`mimo-cache` and the recipe checkout back to the user at the end of setup, so future cleanup is a plain `rm -rf`.
+Gotcha, hit both times: root-owned files under `mimo-cache` and the recipe checkout make a plain `rm -rf` fail. On 10-07 the
+audio-lib step (`docker run` as root) caused it. The end-of-setup chown added then made it worse: `$(id -u):$(id -g)` sat inside
+single quotes, so it expanded in the container, as root, and chowned **everything** to `root:root` (seen 2026-10-23). Fixed: the ids
+now go in as `-e OWNER=...` from the node's shell (tested on the worker: a root-created file came back user-owned, plain `rm` worked).
+Serving also writes root-owned files (Triton cache etc.) into `mimo-cache` *after* setup, though. So clean up with a container:
+
+```bash
+docker run --rm -v $HOME:/h --entrypoint sh <any local image> -c 'rm -rf /h/mimo-cache /h/mimo-recipe'
+```
 
 ## Not done / open items
 

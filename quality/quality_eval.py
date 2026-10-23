@@ -11,11 +11,11 @@ Subcommands
   compare-nll  REF.jsonl X.jsonl ...  mean NLL, paired delta, top-1 agreement vs REF
   compare-pass REF.json X.json ...    paired pass/fail comparison of evalplus result files / gsm8k scored files
 
-Everything is greedy (temperature 0) with thinking off so that differences between configs are
+Everything is greedy (temperature 0, unless NOTHINK_TEMP is set) with thinking off so that differences between configs are
 attributable to the weights rather than to sampling. Greedy is still not bit-deterministic under
 concurrent batching - the noise floor is measured by running the reference config twice.
 """
-import argparse, concurrent.futures as cf, glob, json, math, os, re, sys, time, urllib.request
+import argparse, concurrent.futures as cf, glob, json, math, os, re, sys, time, urllib.request, zlib
 
 URL = os.environ.get("API", "http://localhost:8000")
 MODEL = os.environ.get("MODEL", "qwen3.8-flash-next")
@@ -28,6 +28,12 @@ HEADERS = {"Content-Type": "application/json",
 #   NOTHINK_KWARGS='{"chat_template_kwargs":{"reasoning_effort":"low"}}' NOTHINK_MAX_TOKENS=8192
 NOTHINK_KWARGS = json.loads(os.environ.get("NOTHINK_KWARGS") or '{"chat_template_kwargs":{"enable_thinking":false}}')
 NOTHINK_MAX_TOKENS = int(os.environ.get("NOTHINK_MAX_TOKENS") or 0)   # 0 = per-task default below
+# Thinking-off sampling. Default greedy (the request is unchanged). NOTHINK_TEMP>0 samples instead, at
+# NOTHINK_TOP_P, with seed=crc32(prompt) so two temperatures draw the same random stream per problem
+# (as deep_eval.py does). Used for MiMo at 0.6 vs its server default 1.0 (2026-10-23).
+NOTHINK_TEMP = float(os.environ.get("NOTHINK_TEMP") or 0)
+NOTHINK_SAMPLING = ({"temperature": 0.0} if NOTHINK_TEMP == 0 else
+                    {"temperature": NOTHINK_TEMP, "top_p": float(os.environ.get("NOTHINK_TOP_P") or 0.95)})
 
 
 def post(path, payload, timeout=1800, retries=3):
@@ -43,9 +49,10 @@ def post(path, payload, timeout=1800, retries=3):
 
 
 def chat(content, max_tokens):
+    seed = {} if NOTHINK_TEMP == 0 else {"seed": zlib.crc32(content.encode())}
     r = post("/v1/chat/completions", {
         "model": MODEL, "messages": [{"role": "user", "content": content}],
-        "temperature": 0.0, "max_tokens": max_tokens, **NOTHINK_KWARGS})
+        **NOTHINK_SAMPLING, "max_tokens": max_tokens, **seed, **NOTHINK_KWARGS})
     m = r["choices"][0]["message"]
     return (m.get("content") or ""), r["choices"][0].get("finish_reason"), r["usage"]["completion_tokens"]
 

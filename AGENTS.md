@@ -6,7 +6,9 @@ Project mode: REAL
 Public notes, scripts and measured results from tuning LLM serving on a 2-node DGX Spark (GB10) cluster
 (vLLM TP=2 over the CX7 200G link). The cluster serves one model at a time:
 - Qwen3.8-Flash-Next (NVFP4 + FP8-dense, MTP K=2): `QWEN.md`, `FP8DENSE.md`. Tuned; the production model.
-- MiMo-V2.6-Flash-RL (DFlash 7): `MIMO.md`. Set up, benchmarked, then **removed from both nodes** on 2026-10-07.
+- MiMo-V2.6-Flash-RL (DFlash 7): `MIMO.md`. Set up, benchmarked, then **removed from both nodes** on 2026-10-07. Reinstalled
+  for one day on 2026-10-23 for a temperature study (thinking off: 0.6 beats the server's 1.0 on MBPP+, p=0.011, and 1.0 is 1.3–1.7×
+  slower to solve; thinking on: tie; MIMO.md "Sampling temperature"), then removed again.
 - GLM-5.3-Flash, autotrust NAS-pruned NVFP4 builds E192 / E224 (NVFP4 MTP K=2): `GLM.md`. Benchmarked 2026-10-13:
   ties or beats Qwen C on every task benchmark (not on corpus NLL), 2–3× slower decode (~11.5 vs ~25.5 engine steps/s). E224 is the better GLM
   (same speed, 100% long context). **Removed from both nodes** on 2026-10-13 (checkpoints, image, caches); `GLM_VARIANT=E224 glm/setup_nodes.sh && GLM_VARIANT=E224 glm/up.sh` rebuilds it (158 GB download).
@@ -59,7 +61,7 @@ tell the user. Fixing it means scrubbing plus a history rewrite, and rotating an
 | `pi/models.json.example` | IP-free copy of the pi provider config for the live Qwen: temperature 0.6 via `samplingParams`, image input on |
 | `cluster.env.example` | template for the untracked `cluster.env` (HEAD, WORKER, API, REPO, MIMO_RECIPE) |
 | `scripts/` | Qwen-era benchmark tools; `bench_decode.py` works for any model (`--model`, `--url`); `prefix_probe.py` measures prefix-cache behaviour; `watch_stalls.sh` is the 2 s stall sampler |
-| `quality/` | quality-eval harness (runs on a node with docker; `API` env required) |
+| `quality/` | quality-eval harness (runs on a node with docker; `API` env required). `NOTHINK_TEMP`/`NOTHINK_TOP_P` sample thinking-off runs (unset = greedy); `run_tts.sh` + `tts_score.py` time to solve at concurrency 1 |
 | `configs/` | diffs applied to the Qwen deployment repo (`env.diff`, `start.sh.patch`, FP8 overlays) |
 | `mimo/lib.sh` | shared vars: pinned recipe commit, image, iface/HCA defaults, ports, `on`, `drop_caches` |
 | `mimo/setup_nodes.sh` | recipe checkout + render `mimo.env` + weights (head download, rsync to worker) + patches |
@@ -186,7 +188,9 @@ miss costs ~50 s of exclusive prefill. Client compaction: 2026-10-15 staged `res
 - GLM: thinking-mode tests ran at `reasoning_effort=high`, not `max` (pi's default); GLM tool calling only smoke-tested;
   GLM vision input, 1M context and `max_num_seqs` > 8 not exercised.
 - `mimo/up.sh`, `mimo/down.sh --qwen` and removing MiMo from the nodes were all exercised end to end on 2026-10-07.
-- The cleanup chown step at the end of `mimo/setup_nodes.sh` has not been run (added during cleanup); verify it on the next provision.
+- The cleanup chown at the end of `mimo/setup_nodes.sh` chowned everything to root until 2026-10-23 (ids expanded in the container);
+  fixed and tested on the worker. Serving still writes root-owned files into `mimo-cache`, so remove MiMo with a container `rm -rf` (MIMO.md).
+- MiMo at temperature 0.6: quality and speed measured 2026-10-23, tool-call storms **not** (the recipe found 0.6 makes them worse).
 - Stall episodes WERE captured live with `scripts/watch_stalls.sh` on 2026-10-15 (`results/stall-watch/`), but the two
   columns that would prove the mechanism (`prefill_recomputed`, `prefix_cache_hit_alloc`) read 0 at the time: vLLM
   serves big counters in scientific notation (`4.68835e+06`) and the row parser truncated them. Fixed and re-verified

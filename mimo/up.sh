@@ -11,6 +11,9 @@ set -euo pipefail
 if on "$HEAD" "docker ps -q -f name=^vllm-fn\$" | grep -q .; then
   echo "== stopping Qwen deployment (vllm-fn)"; on "$HEAD" "cd $REPO && ./stop.sh"
 fi
+for n in "$HEAD" "$WORKER"; do   # FP4-Local (the live model since 2026-10-16): never two models in memory at once
+  if on "$n" "docker ps -q -f name=^vllm_fp4local\$" | grep -q .; then echo "== stopping FP4-Local on $n"; on "$n" "docker rm -f vllm_fp4local >/dev/null"; fi
+done
 on "$HEAD" "docker rm -f mimo-toolcap >/dev/null 2>&1 || true"
 
 for n in "$WORKER" "$HEAD"; do drop_caches "$n"; done

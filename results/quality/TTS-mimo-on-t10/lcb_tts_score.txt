@@ -1,0 +1,2 @@
+LCB pass@1 2/10 = 20.0% -> /out/lcb_tts_scored.json
+LCB subset wall 4673s, 467.3s/problem, mean tokens 13134

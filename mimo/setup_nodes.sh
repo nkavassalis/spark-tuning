@@ -38,6 +38,8 @@ on "$WORKER" "cd $MIMO_RECIPE && SKIP_DOWNLOAD=1 bash setup.sh 2>&1 | tee ~/mimo
 # metadata the loader writes) end up root-owned and a plain `rm -rf ~/mimo-cache` fails. Take it back
 # so cleanup later needs no root (learned the hard way on 2026-10-07 while cleaning up).
 for n in "$HEAD" "$WORKER"; do
-  on "$n" "docker run --rm --privileged -v \$HOME:/h --entrypoint sh $IMAGE -c 'chown -R \$(id -u):\$(id -g) /h/$CACHE_NAME /h/$MIMO_RECIPE'"
+  # The ids must expand on the node (-e OWNER), not inside the container: there they are root's, which is what this
+  # line did until 2026-10-23 (it chowned everything to root:root, so cleanup needed a container again).
+  on "$n" "docker run --rm --privileged -e OWNER=\$(id -u):\$(id -g) -v \$HOME:/h --entrypoint sh $IMAGE -c 'chown -R \$OWNER /h/mimo-cache /h/$MIMO_RECIPE'"
 done
 echo "setup done. Next: mimo/up.sh"
