@@ -26,7 +26,7 @@ compressed scale format as Qwen FP4-Local, so the same community **b12x** vLLM b
 | Warm prefix hit (recomputed tokens) | ~2.5K | 0 | — | **0** | |
 | KV pool (fp8) | 4.25M | 5.49M | 2.11M | **2.02M** (500K max context) | |
 | Memory free per node after boot | ~4–7 GiB | 14–18 GiB | 11–13 GiB | **7–8 GiB** | tight but stable |
-| **Time to solve**, HumanEval+ subset (41), one at a time | — | 40.4 s/problem at `xhigh` (37/41); **14.7 at `medium`** (36/41), **13.4 at `low`** (39/41), 4.8 thinking off (38/41) | — | 18.5 s/problem at high (36/41), 99 s at max | **Qwen at `low`/`medium` 1.3–1.4× faster than GLM high**; GLM high beat only Qwen `xhigh` (2.2×) |
+| **Time to solve**, HumanEval+ subset (41), one at a time | — | 40.4 s/problem at `xhigh` (37/41); **14.7 at `medium`** (36/41), **13.4 at `low`** (39/41), 4.8 thinking off (38/41) | — | 18.5 s/problem at high (36/41), 99 s at max; **4.2 s at `low`** (35/41, 0.6; 2026-10-24) | **Qwen at `low`/`medium` 1.3–1.4× faster than GLM high**; GLM high beat only Qwen `xhigh` (2.2×) |
 | **Time to solve**, LiveCodeBench subset (10), one at a time | — | 292 / 302 / 291 s/problem at `xhigh` / `medium` / `low` (1/10 each); 173 s thinking off (3/10, greedy) | — | 323 s/problem at high (2/10), 438 s at max (1/10) | mostly time to the 16K cap; n=10 can't separate solve counts |
 
 **Bottom line:** GLM FP4-Local is the strongest model we've run here on hard competitive code. LiveCodeBench 55% is the only
@@ -52,9 +52,9 @@ Based on the measurements above. Real agent sessions (multi-turn tool use, task 
 
 | Workload | Pick | Why (measured) |
 |---|---|---|
-| Hard algorithmic / competitive problems, where getting it right matters more than latency | **GLM** (effort high) | LiveCodeBench 55.0% vs 46.2% (p=0.065; vs config C 41.2%, p=0.003); hits the 16K cap less often (31 vs 40 of 80) |
+| Hard algorithmic / competitive problems, where getting it right matters more than latency | **GLM** (effort high) | LiveCodeBench 55.0% (57.5% at 0.6, 2026-10-24; temperature not significant) vs 46.2% (p=0.065; vs config C 41.2%, p=0.003); hits the 16K cap less often (31 vs 40 of 80) |
 | Everyday coding-agent turns: small functions, edits, fixes | **Qwen at `medium` or `low`** | equal pass rates; Qwen 14.7 / 13.4 s per problem vs GLM high 18.5 s (and GLM max 99 s). The earlier "GLM 2.2× faster" was against Qwen `xhigh` (40.4 s) |
-| Thinking off: fast completions, boilerplate, mechanical edits | **Qwen** | ties on HumanEval+/MBPP+/GSM8K; decode 63 vs 41 tok/s, so the same answer arrives ~1.5× sooner |
+| Thinking off: fast completions, boilerplate, mechanical edits | **Qwen** (but close) | ties on HumanEval+/MBPP+/GSM8K. Decode is 63 vs 41 tok/s, yet GLM `low` writes shorter answers (166 vs 304 tokens), so measured time to solve is about even: GLM `low` 4.2 s per problem (35/41, 0.6) vs Qwen 4.8 s (38/41, greedy). Qwen keeps it as the live model (no switch) and on the solve count; n=41 |
 | Several agents at once | **Qwen** | aggregate 1.5–2× higher at C2–C6 (C6 187 vs 94 tok/s) |
 | Big repos, many long sessions in parallel, giant cold prompts | **Qwen** | KV pool 5.49M vs 2.03M tokens; cold prefill 2,700 vs 2,170 tok/s (a 180K-token cold miss: ~67 s vs ~83 s, estimated from those rates) |
 | Very long single context (128K–500K) | either; GLM serves up to 500K | long-context tests 99.3% vs 97.2% at 64K/128K (p=0.38); Qwen's window is 262K; GLM beyond 128K is untested |

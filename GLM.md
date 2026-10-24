@@ -198,7 +198,8 @@ p-values are exact McNemar tests on paired per-problem pass/fail (`quality/quali
 same Qwen config differed by 1–2 points, so anything without a small p-value is a tie.
 
 Conditions:
-- "Thinking off" for GLM is `reasoning_effort=low` (it can't turn thinking off; at low it emitted no reasoning).
+- "Thinking off" for GLM is `reasoning_effort=low` (it can't turn thinking off; at low it emitted no reasoning on these HumanEval+/MBPP+ runs, but GLM FP4-Local at low
+  reasons for 20K–54K characters on hard LiveCodeBench problems, GLMFP4.md "Sampling temperature").
   Greedy, `max_tokens` 4096 (Qwen/MiMo: 1536, 1024 for GSM8K; GLM's mean completion was 204 / 178 / 110 tokens, so the
   bigger cap only matters for runaway loops). Truncated at the cap: 1/164, 2/378, 0/1319. Every HumanEval+/MBPP+ answer
   but one per task contained code.

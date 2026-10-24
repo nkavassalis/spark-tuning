@@ -3,7 +3,7 @@
 All on this cluster: 2× DGX Spark, TP=2, same harness, data and sandbox. This page only collects numbers; each one comes from the
 model's own doc, which has the method, the result file and the caveats: [FP8DENSE.md](FP8DENSE.md) / [QWEN.md](QWEN.md) (Qwen
 A/B/C), [FP4LOCAL.md](FP4LOCAL.md) (Qwen FP4-Local), [MIMO.md](MIMO.md) / [QWEN_VS_MIMO.md](QWEN_VS_MIMO.md), [GLM.md](GLM.md)
-(E192/E224), [GLMFP4.md](GLMFP4.md) (GLM FP4-Local). Collected 2026-10-18. **"—" = not measured.** One run per cell unless noted;
+(E192/E224), [GLMFP4.md](GLMFP4.md) (GLM FP4-Local). Collected 2026-10-18; temperature and timing rows added 2026-10-23 (MiMo) and 2026-10-24 (GLM FP4-Local). **"—" = not measured.** One run per cell unless noted;
 the noise floor (Qwen A run twice) is 2–3 problems each way on HumanEval+/MBPP+.
 
 > [!WARNING]
@@ -52,7 +52,7 @@ every model's runs hit the 16K cap, so it measures "solves it within 16K tokens"
 | | thinking on | 89.0 | — | — | 46.2 | |
 | | thinking on, T=0.6 (2026-10-23) | 92.1 | — | — | 48.8 | |
 | | thinking on, T=1.0 rerun (2026-10-23) | 92.1 | — | — | 45.0 | |
-| GLM E192 | `low` (no reasoning) | 92.1 | 79.9 | 96.3 | — | 97.9% |
+| GLM E192 | `low` | 92.1 | 79.9 | 96.3 | — | 97.9% |
 | | `high` | 92.7 | — | — | 47.5 | |
 | GLM E224 | `low` | 92.1 | **82.0** | — | — | **100%** |
 | **GLM FP4-Local** | `low` | 91.5 | 81.7 | **96.5** | — | 99.3% |
