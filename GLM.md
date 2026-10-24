@@ -40,7 +40,7 @@ the default is `max`.
 **E224** (224 experts, 9 GiB more weights per node) runs at the same speed, still leaves 11–13 GiB free per node, and scored
 **100% on long context** (significantly ahead of Qwen, p=0.016) and 82.0 on MBPP+ (+2.1 over E192, not significant). It also has
 better corpus likelihood (0.141 vs 0.196 bits/byte). Its GSM8K and thinking-mode tests weren't run. Of these two NAS-pruned builds,
-**E224 is the better pick** (for GLM today, see [GLMFP4.md](GLMFP4.md)): it fits fine at 262K context and loses nothing in speed. See [E224](#e224-224-experts-kept-158-gb).
+**E224 is the better pick** (for GLM as of 2026-10-17, see [GLMFP4.md](GLMFP4.md)): it fits fine at 262K context and loses nothing in speed. See [E224](#e224-224-experts-kept-158-gb).
 
 ---
 
@@ -270,7 +270,7 @@ LiveCodeBench.
 ## How to run it again
 
 ```bash
-GLM_VARIANT=E192 glm/setup_nodes.sh   # not installed now: run this first; downloads (139 GB) and rsyncs to the worker
+GLM_VARIANT=E192 glm/setup_nodes.sh   # not installed (2026-10-24): run this first; downloads (139 GB) and rsyncs to the worker
 GLM_VARIANT=E192 glm/up.sh            # stops Qwen (FP4-Local or config C), ~10 min to ready; API http://<head>:8000/v1, model glm53-flash-e192
 glm/down.sh --fp4local                # back to the live Qwen FP4-Local (LIVE=1 SPEC_TOKENS=2 fp4local/up.sh)
 glm/down.sh --qwen                    # or back to Qwen config C (~11 min)

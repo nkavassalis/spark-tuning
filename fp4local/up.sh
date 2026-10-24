@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# up.sh: switch the cluster to nvidia/Qwen3.8-Flash-Next-FP4-Local at TP=2. Stops the Qwen deployment (if running),
+# up.sh: switch the cluster to nvidia/Qwen3.8-Flash-Next-FP4-Local at TP=2. Stops any other model (stop_other_models, scripts/models.sh),
 # drops the page cache, starts the head, waits for its rendezvous port, starts the headless worker, waits for the API.
 #   fp4local/up.sh
 # The vLLM env and flags are nvidia's DGX Spark recipe from the model card, verbatim, except TP 1 -> 2 (+ multi-node
@@ -25,9 +25,8 @@ if [ "$PLE_MEMORY" = device ]; then PLE_ENV=""; PLEARG="--additional-config '{\"
 NAMES=$SERVED_NAME
 if [ "$LIVE" = 1 ]; then NAMES="qwen3.8-flash-next $SERVED_NAME"; API_KEY=""; fi
 
-if on "$HEAD" "docker ps -q -f name=^vllm-fn\$" | grep -q .; then
-  echo "== stopping Qwen deployment (vllm-fn)"; on "$HEAD" "cd $REPO && ./stop.sh"
-fi
+. "$ROOT/scripts/models.sh"
+stop_other_models "$CNAME"   # never two models in memory at once
 for n in "$HEAD" "$WORKER"; do on "$n" "docker rm -f $CNAME >/dev/null 2>&1 || true"; done
 for n in "$HEAD" "$WORKER"; do
   on "$n" "docker ps -q | grep -q . && { echo 'refusing: other containers are running on $n'; docker ps; exit 1; } || true"

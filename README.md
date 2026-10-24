@@ -44,7 +44,7 @@ and the 300K window.
 | `GLMFP4.md` | nvidia's QAD FP4-Local GLM-5.3-Flash: K sweep, speed and quality vs Qwen and the pruned GLMs, time-to-solve |
 | `COMPARISON.md` | every model × every reasoning setting we ran (quality, time to solve, speed) on one page, plus how to use them |
 | `SGLANG.md` | can SGLang serve FP4-Local instead of the b12x vLLM build? Not yet (CSF scales, NVFP4 PLE table); researched, not measured |
-| `scripts/` | Qwen benchmark / health scripts (`bench_decode.py`, `spec_acceptance.py`, `check_cluster.sh`, `mtp_ab.sh`, `prefix_probe.py` for prefix-cache behaviour, `watch_stalls.sh` stall sampler, `stage_pi_compaction.py` for the pi client staging) |
+| `scripts/` | Qwen benchmark / health scripts (`bench_decode.py`, `spec_acceptance.py`, `check_cluster.sh`, `mtp_ab.sh`, `prefix_probe.py` for prefix-cache behaviour, `watch_stalls.sh` stall sampler, `stage_pi_compaction.py` for the pi client staging, `models.sh` one-model-at-a-time guard, `check_repo.py` drift check) |
 | `PI.md` | the client side: how pi's request shape produces stalls, and the client-side tuning |
 | `quality/` | quality-eval harness (NLL, HumanEval+/MBPP+, GSM8K, thinking-mode, long context, time to solve) |
 | `configs/` | diffs/patches applied to the Qwen deployment repo |
@@ -106,6 +106,8 @@ MiMo is **not installed** on the nodes right now (removed 2026-10-07, reinstalle
 ## Tests
 
 ```bash
+scripts/check_repo.py                     # doc/script drift check (offline; AGENTS.md "Keeping the docs current")
+scripts/test_models.sh                    # one-model-at-a-time guard, offline
 node --test mimo/toolcap/*.test.cjs               # proxy unit tests (no network, no GPU)
 API=http://<head>:8000 mimo/test_mimo.py  # MiMo functional checks; needs the MiMo setup running
 scripts/check_cluster.sh                  # config C health/config check (inspects vllm-fn only, not the live FP4-Local)

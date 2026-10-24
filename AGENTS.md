@@ -61,7 +61,7 @@ tell the user. Fixing it means scrubbing plus a history rewrite, and rotating an
 | `SGLANG.md` | 2026-10-18 research: no SGLang build reads FP4-Local (CSF expert scales: lossless offline fix; NVFP4 PLE table: needs an SGLang patch); published SGLang 2× Spark numbers not faster for single-user; nothing run |
 | `pi/models.json.example` | IP-free copy of the pi provider config for the live Qwen: temperature 0.6 via `samplingParams`, image input on |
 | `cluster.env.example` | template for the untracked `cluster.env` (HEAD, WORKER, API, REPO, MIMO_RECIPE, optional API_KEY) |
-| `scripts/` | Qwen-era benchmark tools; `bench_decode.py` works for any model (`--model`, `--url`); `prefix_probe.py` measures prefix-cache behaviour; `watch_stalls.sh` is the 2 s stall sampler |
+| `scripts/` | Qwen-era benchmark tools; `bench_decode.py` works for any model (`--model`, `--url`); `prefix_probe.py` measures prefix-cache behaviour; `watch_stalls.sh` is the 2 s stall sampler; `models.sh` = `stop_other_models`, the one-model-at-a-time guard every `up.sh` calls (`test_models.sh` tests it offline); `check_repo.py` is the doc/script drift check |
 | `quality/` | quality-eval harness (runs on a node with docker; `API` env required). `NOTHINK_TEMP`/`NOTHINK_TOP_P` sample thinking-off runs (unset = greedy); `run_tts.sh` + `tts_score.py` time to solve at concurrency 1 |
 | `configs/` | diffs applied to the Qwen deployment repo (`env.diff`, `start.sh.patch`, FP8 overlays) |
 | `mimo/lib.sh` | shared vars: pinned recipe commit, image, iface/HCA defaults, ports, `on`, `drop_caches` |
@@ -82,7 +82,7 @@ tell the user. Fixing it means scrubbing plus a history rewrite, and rotating an
 ## How to run
 ```bash
 cp cluster.env.example cluster.env   # fill in (never commit)
-mimo/setup_nodes.sh                  # idempotent; ~178 GB weights (MiMo is currently NOT installed on the nodes)
+mimo/setup_nodes.sh                  # idempotent; ~178 GB weights (MiMo is NOT installed on the nodes as of 2026-10-24)
 mimo/up.sh                           # stops Qwen (FP4-Local or config C), starts MiMo (~13.5 min) + proxy
 mimo/down.sh --fp4local              # back to the live Qwen FP4-Local (--qwen: config C)
 ```
@@ -96,6 +96,8 @@ proxy files and log `~/mimo-toolcap/` (container `mimo-toolcap`), vLLM container
 
 ## How to run the tests
 ```bash
+scripts/check_repo.py                                  # drift: paths, anchors, script flags/knobs, undated "current", stop guard
+scripts/test_models.sh                                 # stop_other_models, offline (fake ssh)
 scripts/stage_pi_compaction.py --check                 # confirm the pi client staging (PI.md)
 node --test mimo/toolcap/*.test.cjs                    # 13 proxy unit tests, offline
 set -a; . ./cluster.env; set +a; mimo/test_mimo.py     # live: chat, tool-call parse, storm guard
@@ -124,7 +126,7 @@ TTFT exceeds ~0.3 s.
 ## Client (pi)
 The user's agent is pi. It always streams and only sends `temperature` if configured, so both MiMo storm
 mitigations apply. The local pi config (outside this repo) has a `qwen` provider at `<head>:8000/v1` and a `mimo`
-provider at `<head>:8000/mimo/v1`; only the one matching the model currently served works (the `mimo` entry is inert while MiMo is not provisioned).
+provider at `<head>:8000/mimo/v1`; only the one matching the served model works (the `mimo` entry is inert while MiMo is not provisioned).
 Qwen thinks by default, which costs it speed (see `QWEN_VS_MIMO.md`: 66–70 tok/s with thinking off vs 48–56 with it
 on). If decode speed matters more than reasoning in pi, turn reasoning off — Qwen with thinking on still beat MiMo
 with thinking off in every cell measured.
@@ -139,6 +141,28 @@ miss costs ~50 s of exclusive prefill. Client compaction: 2026-10-15 staged `res
 - Every number in the docs is measured, with the result file next to it. Label anything unmeasured as unmeasured.
 - Shell: `set -euo pipefail`, source `mimo/lib.sh`, use `on "$HEAD" ...`. Python: stdlib only.
 - Dates in docs: YYYY-MM-DD. New experiments get a section in the model's .md plus a result file.
+
+## Keeping the docs current
+The 2026-10-24 audit found ~60 stale lines across 12 docs and two scripts (`glm/up.sh`, `fp4local/up.sh`) that could load
+a model next to another one. All of it came from state being restated in many places without a date, and from scripts
+written before a later model existed. Rules:
+- **Current state has one home: the Purpose section of this file** (what is live and with which command, what is installed,
+  what pi sends). README "Switching models" and each model doc's `**Status YYYY-MM-DD:**` line may repeat it, always dated.
+  Other docs link to it instead of restating it.
+- **Date every claim about what is live, installed or sent by pi**, in the same paragraph. "currently", "today", "(current)"
+  go stale silently, and `scripts/check_repo.py` fails on them undated. Name the configuration a number was measured on
+  ("FP4-Local benchmark mode", "config C", "`xhigh`") rather than "the live model" or "what pi sends".
+- **When the state changes** (live model, its flags / KV pool / free memory, the installed set, pi's client settings), in
+  the same commit: update the Purpose section, README "Switching models", the affected model docs' Status lines and
+  COMPARISON.md, then `git grep` the *old* value (old number, old command, old model name) across `*.md` and fix or date
+  every hit. A superseded finding stays as dated history with a one-line pointer to what replaced it; never leave it
+  silently contradicted further down the page.
+- **When adding a model directory:** add its container names to `MODEL_CONTAINERS` in `scripts/models.sh`, call
+  `stop_other_models` in its `up.sh`, give its `down.sh` a way back to the live model (`--fp4local` today, 2026-10-24),
+  and add it to the `bash -n` / `py_compile` lists above.
+- `scripts/check_repo.py` runs offline in the test list. It catches an `up.sh` without the shared stop, unlisted
+  containers, missing paths and heading anchors, script flags or env knobs that don't exist, and undated current-state
+  wording. **It cannot catch a stale number or a wrong claim**: the `git grep` step above is the only guard for those.
 
 ## Known issues / TODOs
 - **Server default for Qwen is temperature 1.0 (the checkpoint's `generation_config`), every Qwen thinking score here is at 0.6.**
@@ -210,5 +234,5 @@ miss costs ~50 s of exclusive prefill. Client compaction: 2026-10-15 staged `res
 
 ## Guardrails in effect
 - GitHub: `nkavassalis/spark-tuning`, **PUBLIC** (the user's choice; normally repos are private). Account must be `nkavassalis` (`gh auth status`).
-- Before any push: run the tests above (proxy unit tests, syntax checks, live `mimo/test_mimo.py` if the cluster
+- Before any push: run the tests above (`check_repo.py`, `test_models.sh`, proxy unit tests, syntax checks, live `mimo/test_mimo.py` if the cluster
   is on MiMo) and the leak scan. No web UI, so no Playwright.

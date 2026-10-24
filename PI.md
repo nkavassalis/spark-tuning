@@ -177,7 +177,7 @@ left to reuse. Measured on the live server, one prompt of ~30K tokens, one token
 `preamble` (169 chars), `tools` (339), `rules` (839), `docs` (1406), `addendum` (8,906), `cwd` (36), `project_context`
 (16,950) - with no date, no session id and no UUID anywhere in it. So a restart is normally a perfect hit, and pays a
 full prefill only when one of those sections changes: the injected `AGENTS.md`/`CLAUDE.md` (re-read at session start),
-the tool/skill set, the model, or the cwd. **Which is what happened today**: several commits edited this repo's
+the tool/skill set, the model, or the cwd. **Which is what happened on 2026-10-16**: several commits edited this repo's
 `AGENTS.md` while sessions were live, so the first restart of each session after those edits re-read the file, diverged
 near token 0, and re-crunched the entire history. That cost is ours, not the cluster's.
 
@@ -225,8 +225,8 @@ row that finds anything cached says so out loud.
 
 The local pi config (outside this repo) has a `qwen` provider at `<head>:8000/v1`, plus `mimo` at
 `<head>:8000/mimo/v1` (inert — MiMo is not installed) and a GLM entry when provisioned. Only the provider matching the
-model currently served works; `mimo/setup_nodes.sh && mimo/up.sh` / `GLM_VARIANT=E224 glm/setup_nodes.sh && GLM_VARIANT=E224 glm/up.sh`
-(neither installed now) / `mimo/down.sh --fp4local` (live FP4-Local) or `--qwen` (config C) change which one
+served model works; `mimo/setup_nodes.sh && mimo/up.sh` / `GLM_VARIANT=E224 glm/setup_nodes.sh && GLM_VARIANT=E224 glm/up.sh`
+(neither installed as of 2026-10-24) / `mimo/down.sh --fp4local` (live FP4-Local) or `--qwen` (config C) change which one
 answers. Qwen's template defaults to thinking **on**, which is the slower path above.
 
 The `qwen` entry, IP-free, is [pi/models.json.example](pi/models.json.example) (copy it to `~/.pi/agent/models.json` and

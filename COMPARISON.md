@@ -130,7 +130,7 @@ nothing else on the server.
   problems, and faster than GLM `high` there too. Don't pick `xhigh`.
 - **Mechanical edits and small functions: Qwen with thinking off**, ~3× faster again at the same HumanEval+ pass rate.
 - **A run of hard algorithmic problems: GLM FP4-Local at `high`** (temperature makes no measurable difference for GLM; 0.6 is fine) (LiveCodeBench 55.0, the only significant coding-quality win over Qwen; GLM E224 also beat Qwen C on long context, p=0.016).
-  It's a model switch, not a per-request choice, and GLM is not installed now (`glmfp4/setup_nodes.sh`, 166 GiB). Never run GLM at
+  It's a model switch, not a per-request choice, and GLM is not installed (as of 2026-10-24; `glmfp4/setup_nodes.sh`, 166 GiB). Never run GLM at
   `max` for interactive work: 99 s per easy problem.
 - Keep one thinking level per session: changing it re-prefills the whole history ([PI.md](PI.md)).
 - MiMo lost to Qwen on speed everywhere and on MBPP+ significantly; it is not installed. If it comes back, 0.6 beats the

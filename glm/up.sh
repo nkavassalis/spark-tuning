@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# up.sh: switch the cluster to GLM-5.3-Flash. Stops Qwen (config C or the live FP4-Local, if running), starts the head
+# up.sh: switch the cluster to GLM-5.3-Flash. Stops any other model (stop_other_models, scripts/models.sh), starts the head
 # container, waits for its rendezvous port, starts the headless worker, waits until the API is ready.
 #   GLM_VARIANT=E192 glm/up.sh
 # Knobs (env): SPEC_TOKENS (MTP draft length, 0 = off; default 2), MAX_LEN (262144), MAX_SEQS (8),
@@ -11,12 +11,8 @@ set -euo pipefail
 SPEC_TOKENS=${SPEC_TOKENS:-2}; MAX_LEN=${MAX_LEN:-262144}; MAX_SEQS=${MAX_SEQS:-8}
 KV_BYTES=${KV_BYTES:-21474836480}; GMU=${GMU:-0.80}; CUDAGRAPH=${CUDAGRAPH:-FULL_DECODE_ONLY}
 
-if on "$HEAD" "docker ps -q -f name=^vllm-fn\$" | grep -q .; then
-  echo "== stopping Qwen deployment (vllm-fn)"; on "$HEAD" "cd $REPO && ./stop.sh"
-fi
-for n in "$HEAD" "$WORKER"; do   # FP4-Local (the live model since 2026-10-16): never two models in memory at once
-  if on "$n" "docker ps -q -f name=^vllm_fp4local\$" | grep -q .; then echo "== stopping FP4-Local on $n"; on "$n" "docker rm -f vllm_fp4local >/dev/null"; fi
-done
+. "$ROOT/scripts/models.sh"
+stop_other_models "$CNAME"   # never two models in memory at once
 for n in "$HEAD" "$WORKER"; do on "$n" "docker rm -f $CNAME >/dev/null 2>&1 || true"; done
 for n in "$WORKER" "$HEAD"; do drop_caches "$n"; done
 

@@ -24,13 +24,8 @@ EPARG=""; [ "$EP" = 1 ] && EPARG="--enable-expert-parallel"
 SPEC=""
 [ "$SPEC_TOKENS" -gt 0 ] && SPEC="--speculative-config '{\"method\":\"mtp\",\"num_speculative_tokens\":$SPEC_TOKENS,\"moe_backend\":\"$DRAFT_MOE\",\"attention_backend\":\"B12X\"}'"
 
-if on "$HEAD" "docker ps -q -f name=^vllm-fn\$" | grep -q .; then
-  echo "== stopping Qwen deployment (vllm-fn)"; on "$HEAD" "cd $REPO && ./stop.sh"
-fi
-for n in "$HEAD" "$WORKER"; do on "$n" "docker rm -f $CNAME vllm_fp4local >/dev/null 2>&1 || true"; done
-for n in "$HEAD" "$WORKER"; do
-  on "$n" "docker ps -q | grep -q . && { echo 'refusing: other containers are running on $n'; docker ps; exit 1; } || true"
-done
+. "$ROOT/scripts/models.sh"
+stop_other_models ""   # stops every model incl. an old $CNAME, refuses if anything else is running
 for n in "$WORKER" "$HEAD"; do drop_caches "$n"; done
 
 head_ip=$(link_ip "$HEAD")

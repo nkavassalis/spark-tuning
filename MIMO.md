@@ -86,7 +86,7 @@ All scripts read hosts from the untracked `cluster.env`; nothing site-specific i
 | Weights + cache under `$HOME`, not `/var/tmp` | `mimo/mimo.env.example` | systemd-tmpfiles ages out `/var/tmp` (30 days on Ubuntu) and would eat 178 GB of weights |
 | Download on the head only, rsync to the worker over the CX7 link | `mimo/setup_nodes.sh` | 178 GB: ~25 min from HF, then 5.5 min head→worker at ~530 MB/s. No NFS (would need root). |
 | Drop the page cache before launch without sudo | `drop_caches` in `mimo/lib.sh` | recipe's `serve.sh` tries `sudo -n`, which fails silently here; at GMU 0.90 vLLM's probe doesn't count page cache. We run `echo 3 > /proc/sys/vm/drop_caches` in a privileged container (SSH user is in the docker group). |
-| Stop Qwen (config C or the live FP4-Local) → worker → head → proxy → wait for ready | `mimo/up.sh` | the recipe's `serve.sh` exits 1 on the worker even on success (last line is `[ "$R" = 0 ] && echo`), so `up.sh` checks the container instead |
+| Stop any other model (`stop_other_models`, `scripts/models.sh`) → worker → head → proxy → wait for ready | `mimo/up.sh` | the recipe's `serve.sh` exits 1 on the worker even on success (last line is `[ "$R" = 0 ] && echo`), so `up.sh` checks the container instead |
 | Tool-call-cap proxy as a container on the head | `mimo/up.sh`, `mimo/toolcap/` | `node:22-alpine`, `--restart unless-stopped`, host network, `:8000`. One-line change to upstream (`upstream.diff`): bind address from `TOOLCAP_HOST` (upstream hardcodes loopback). |
 | Switch back | `mimo/down.sh [--fp4local\|--qwen]` | `--fp4local` brings back the live model (`LIVE=1 SPEC_TOKENS=2 fp4local/up.sh`); `--qwen` relaunches config C's `./start.sh --launch` |
 

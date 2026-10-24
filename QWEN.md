@@ -206,7 +206,7 @@ Two live suspects, both consistent with "busy but no tokens":
    plus speculative decoding is precisely the combination the MiMo recipe turns off (`--no-async-scheduling`) because
    of vllm#46669 (corrupted output under concurrency). A desync there looks exactly like this.
 2. **Host memory pressure on unified memory.** Head `MemAvailable` is ~5.2 GiB (the guardrail from the torch.compile
-   incident is "keep above ~4 GiB"), **2.4 GiB of the vLLM process is swapped out right now** (Worker_TP 1.44 GiB,
+   incident is "keep above ~4 GiB"), **2.4 GiB of the vLLM process is swapped out at the time (2026-10-15)** (Worker_TP 1.44 GiB,
    EngineCore 0.26 GiB, API server 0.6 GiB), with 8.15M major faults since boot. When the kernel reclaims the engine's
    own host pages, the next step that touches them page-faults from NVMe: load without progress.
 
