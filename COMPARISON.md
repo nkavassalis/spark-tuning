@@ -6,14 +6,15 @@ A/B/C), [FP4LOCAL.md](FP4LOCAL.md) (Qwen FP4-Local), [MIMO.md](MIMO.md) / [QWEN_
 (E192/E224), [GLMFP4.md](GLMFP4.md) (GLM FP4-Local). Collected 2026-10-18; temperature and timing rows added 2026-10-23 (MiMo) and 2026-10-24 (GLM FP4-Local). **"—" = not measured.** One run per cell unless noted;
 the noise floor (Qwen A run twice) is 2–3 problems each way on HumanEval+/MBPP+.
 
-> [!WARNING]
-> **Until 2026-10-19 pi did not run Qwen at the sampling settings this repo benchmarks.** pi sends no `temperature` by default, so vLLM applies the
-> checkpoint's `generation_config.json`: **temperature 1.0 / top_p 0.95 / top_k 20**. Every Qwen thinking-on score in this repo was
-> measured at **0.6** / 0.95 / 20 (thinking off: greedy). Re-measured at pi's real settings on 2026-10-19 (FP4-Local, `medium`, 1.0):
+> [!NOTE]
+> **The server's default temperature is 1.0; every Qwen thinking score here is at 0.6, and pi sends 0.6 (since 2026-10-19).**
+> A request that sends no `temperature` gets the checkpoint's `generation_config.json`: **1.0 / top_p 0.95 / top_k 20**. Every Qwen
+> thinking-on score in this repo was measured at **0.6** / 0.95 / 20 (thinking off: greedy). Until 2026-10-19 pi sent no temperature,
+> so it ran at 1.0. Measured at the server default on 2026-10-19 (FP4-Local, `medium`, 1.0):
 > HumanEval+ is unchanged (95.1 vs 95.7), but **LiveCodeBench drops to 37.5% from 43.8%**. All 6 lost problems are hard ones
 > (hard: 4/46 vs 9/46) and 49 vs 43 of 80 hit the 16K cap. Paired: vs `medium` at 0.6, 6 lost / 1 gained, p=0.125; vs `xhigh` at 0.6
-> p=0.016, vs `low` at 0.6 p=0.021. One run each. **Read the repo's Qwen thinking scores as "at 0.6", not "what pi gets".**
-> **Fixed client-side 2026-10-19:** pi now sends 0.6 via `"samplingParams": {"temperature": 0.6}` on the model
+> p=0.016, vs `low` at 0.6 p=0.021. One run each. **The repo's 0.6 scores are what pi gets now; 1.0 is what any client gets that
+> sends nothing.** Client-side fix (2026-10-19): pi sends 0.6 via `"samplingParams": {"temperature": 0.6}` on the model
 > ([pi/models.json.example](pi/models.json.example)). A top-level `"temperature"` key on the model is **silently ignored** by pi.
 > The server default is still 1.0 for any other client (server fix, not applied: `--override-generation-config '{"temperature":0.6}'`).
 > Details: [FP4LOCAL.md](FP4LOCAL.md) "Sampling temperature".
@@ -22,7 +23,7 @@ the noise floor (Qwen A run twice) is 2–3 problems each way on HumanEval+/MBPP
 
 | Model | Control | Levels | Default when the request sends nothing | What pi sends |
 |---|---|---|---|---|
-| Qwen3.8-Flash-Next (A/B/C, FP4-Local) | `enable_thinking` + `reasoning_effort` (thinking on only) | off; `low`, `medium`, `xhigh` (`high` = HTTP 400) | thinking on, **`xhigh`** | `medium` |
+| Qwen3.8-Flash-Next (A/B/C, FP4-Local) | `enable_thinking` + `reasoning_effort` (thinking on only) | off; `low`, `medium`, `xhigh` (`high` = HTTP 400) | thinking on, **`xhigh`** | `medium`, temperature 0.6 (`samplingParams`, since 2026-10-19) |
 | MiMo-V2.6-Flash-RL | `enable_thinking` only (no effort control in the template or model card) | off; on | template: on. **Our server: off** (recipe default, tool-call-storm mitigation) | — (not installed) |
 | GLM-5.3-Flash (E192, E224, FP4-Local) | `reasoning_effort` only (always thinks) | `low` (≈ no reasoning on easy prompts, long on hard ones), `high`, anything else = `max` | **`max`** | `medium`, which GLM treats as `max` (inferred, see GLMFP4.md) |
 
@@ -44,11 +45,11 @@ every model's runs hit the 16K cap, so it measures "solves it within 16K tokens"
 | **Qwen FP4-Local** (live) | thinking off | 94.5 | 79.9 | 96.4 | — | 97.2% |
 | | thinking on, `low` | 94.5 | — | — | 47.5 | |
 | | thinking on, `medium`, T=0.6 | **95.7** | — | — | 43.8 | |
-| | thinking on, `medium`, **T=1.0 (what pi gets)** | 95.1 | — | — | **37.5** | |
+| | thinking on, `medium`, **T=1.0 (server default)** | 95.1 | — | — | **37.5** | |
 | | thinking on, `xhigh` | 92.7 | — | — | 46.2 | |
 | MiMo | thinking off (server rep-pen 1.05) | 88.4 | 74.3 | 96.4 | — | 90.3% |
 | | thinking off, T=0.6 (2026-10-23) | 84.8 | **75.4** | — | — | |
-| | thinking off, **T=1.0 (server default, what pi gets)** | 86.0 | 70.6 | — | — | |
+| | thinking off, **T=1.0 (server default)** | 86.0 | 70.6 | — | — | |
 | | thinking on | 89.0 | — | — | 46.2 | |
 | | thinking on, T=0.6 (2026-10-23) | 92.1 | — | — | 48.8 | |
 | | thinking on, T=1.0 rerun (2026-10-23) | 92.1 | — | — | 45.0 | |
@@ -83,7 +84,7 @@ models were timed on 10-18/19, MiMo (DFlash 7) on 2026-10-23 and GLM FP4-Local a
 | Qwen FP4-Local (K=2) | thinking off (greedy) | 38 | **4.8** | **5.2** | 304 | **3** | **173** | 10,508 |
 | | `low` | **39** | 13.4 | 14.1 | 854 | 1 | 291 | 15,340 |
 | | `medium`, T=0.6 | 36 | 14.7 | 16.7 | 945 | 1 | 301.5 | 15,726 |
-| | `medium`, **T=1.0 (what pi gets)** | 38 | 15.8 | 17.0 | 1,010 | 1 | 332.5 | 15,789 |
+| | `medium`, **T=1.0 (server default)** | 38 | 15.8 | 17.0 | 1,010 | 1 | 332.5 | 15,789 |
 | | `xhigh` | 37 | 40.4 | 44.8 | 2,168 | 1 | 292 | 15,313 |
 | GLM FP4-Local (K=3) | `high` | 36 | 18.5 | 21.1 | 728 | 2 | 323 | 10,680 |
 | | `max` | 35 | 99.3 | 116.4 | 3,875 | 1 | 438 | 15,043 |
@@ -92,7 +93,7 @@ models were timed on 10-18/19, MiMo (DFlash 7) on 2026-10-23 and GLM FP4-Local a
 | | `high`, T=0.6 (2026-10-24) | 38 | 16.2 | 17.5 | 703 | 2 | 344 | 11,788 |
 | | `high`, T=1.0 rerun | 37 | 23.7 | 26.3 | 874 | 2 | 378 | 12,618 |
 | MiMo (DFlash 7) | thinking off, T=0.6 | 34 | 7.2 | 8.7 | 356 | 1 | 110 | 4,069 |
-| | thinking off, **T=1.0 (what pi gets)** | 35 | 9.5 | 11.1 | 411 | 0 | 160 | 4,327 |
+| | thinking off, **T=1.0 (server default)** | 35 | 9.5 | 11.1 | 411 | 0 | 160 | 4,327 |
 | | thinking on, T=0.6 | 37 | 21.8 | 24.1 | 904 | 1 | 414 | 14,199 |
 | | thinking on, T=1.0 | 37 | 37.4 | 41.4 | 1,205 | 2 | 467 | 13,134 |
 

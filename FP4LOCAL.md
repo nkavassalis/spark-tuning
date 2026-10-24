@@ -12,14 +12,15 @@ validated it on **one** Spark (TP=1). We ran it TP=2 across both Sparks so every
 
 ## Summary
 
-> [!WARNING]
-> **Until 2026-10-19 pi did not run Qwen at the sampling settings this repo benchmarks.** pi sends no `temperature` by default, so vLLM applies the
-> checkpoint's `generation_config.json`: **temperature 1.0 / top_p 0.95 / top_k 20**. Every Qwen thinking-on score in this repo was
-> measured at **0.6** / 0.95 / 20 (thinking off: greedy). Re-measured at pi's real settings on 2026-10-19 (FP4-Local, `medium`, 1.0):
+> [!NOTE]
+> **The server's default temperature is 1.0; every Qwen thinking score here is at 0.6, and pi sends 0.6 (since 2026-10-19).**
+> A request that sends no `temperature` gets the checkpoint's `generation_config.json`: **1.0 / top_p 0.95 / top_k 20**. Every Qwen
+> thinking-on score in this repo was measured at **0.6** / 0.95 / 20 (thinking off: greedy). Until 2026-10-19 pi sent no temperature,
+> so it ran at 1.0. Measured at the server default on 2026-10-19 (FP4-Local, `medium`, 1.0):
 > HumanEval+ is unchanged (95.1 vs 95.7), but **LiveCodeBench drops to 37.5% from 43.8%**. All 6 lost problems are hard ones
 > (hard: 4/46 vs 9/46) and 49 vs 43 of 80 hit the 16K cap. Paired: vs `medium` at 0.6, 6 lost / 1 gained, p=0.125; vs `xhigh` at 0.6
-> p=0.016, vs `low` at 0.6 p=0.021. One run each. **Read the repo's Qwen thinking scores as "at 0.6", not "what pi gets".**
-> **Fixed client-side 2026-10-19:** pi now sends 0.6 via `"samplingParams": {"temperature": 0.6}` on the model
+> p=0.016, vs `low` at 0.6 p=0.021. One run each. **The repo's 0.6 scores are what pi gets now; 1.0 is what any client gets that
+> sends nothing.** Client-side fix (2026-10-19): pi sends 0.6 via `"samplingParams": {"temperature": 0.6}` on the model
 > ([pi/models.json.example](pi/models.json.example)). A top-level `"temperature"` key on the model is **silently ignored** by pi.
 > The server default is still 1.0 for any other client (server fix, not applied: `--override-generation-config '{"temperature":0.6}'`).
 > Details: [FP4LOCAL.md](FP4LOCAL.md) "Sampling temperature".
@@ -420,19 +421,19 @@ Reading it:
   greedy vs sampled: a hint, not a result. The full 80-problem LiveCodeBench was never run with thinking off.
 - End-to-end streaming rate (prefill included) at K=2: ~64 tok/s on short answers at every level, ~52 tok/s on 16K-token runs.
 
-**How to use it:** keep pi at `medium` (its default) or use `low` (both measured at temperature 0.6; pi gets 1.0, see the next section); don't select `xhigh`. Use thinking off for mechanical edits and
+**How to use it:** keep pi at `medium` (its default) or use `low` (both measured at temperature 0.6, which pi sends since 2026-10-19; the server default is 1.0, see the next section); don't select `xhigh`. Use thinking off for mechanical edits and
 small functions, where it is ~3× faster again at the same pass rate. Pick one level per session, because switching costs a full
 re-prefill.
 
 ---
 
-## Sampling temperature: what pi actually gets (2026-10-19)
+## Sampling temperature: the server default 1.0 vs the harness's 0.6 (2026-10-19)
 
-**Question:** pi sends no `temperature`. What does the server use, and does it matter?
+**Question:** pi sent no `temperature` (until the fix below). What does the server use, and does it matter?
 
 vLLM's default `--generation-config auto` loads the checkpoint's `generation_config.json`, and the server log says so on boot:
 "Default vLLM sampling parameters have been overridden by the model's `generation_config.json`: `{'temperature': 1.0, 'top_k': 20,
-'top_p': 0.95}`". So **pi samples at 1.0 / 0.95 / 20**, thinking on or off. The harness has always used 0.6 / 0.95 / 20 for thinking
+'top_p': 0.95}`". So **a request without a temperature samples at 1.0 / 0.95 / 20**, thinking on or off (pi did, until the fix below). The harness has always used 0.6 / 0.95 / 20 for thinking
 (the older Qwen recommendation) and greedy for thinking off. nvidia's model card gives no sampling recommendation (revision `b9ce18a`).
 
 Re-run of the `medium` row above with only the temperature changed: 1.0 / 0.95 / 20, same prompts, per-task seeds, K=2, lock-out,
@@ -441,7 +442,7 @@ budget (`results/quality/F4-deep-medium-t1`, `results/quality/TTS-fp4local-mediu
 | Qwen FP4-Local, `medium` | HumanEval+ base / **plus** | **LiveCodeBench** (80) | LCB easy / medium / hard | mean tokens HE+ / LCB | LCB at 16K cap |
 |---|---|---|---|---|---|
 | T=0.6 (the harness) | 98.8 / **95.7** | **43.8** | 16/16, 10/18, **9/46** | 1,004 / 10,593 | 43 |
-| **T=1.0 (what pi gets)** | 98.2 / **95.1** (1 / 0, p=1.0) | **37.5** (6 / 1, p=0.125) | 16/16, 10/18, **4/46** | 1,003 / 11,353 | 49 |
+| **T=1.0 (server default)** | 98.2 / **95.1** (1 / 0, p=1.0) | **37.5** (6 / 1, p=0.125) | 16/16, 10/18, **4/46** | 1,003 / 11,353 | 49 |
 
 T=1.0 on LiveCodeBench against the other 0.6 runs: `xhigh` 7 / 0 (**p=0.016**), `low` 9 / 1 (**p=0.021**), GLM FP4-Local high 15 / 1
 (p=0.001); against config C (`xhigh`, 0.6) 4 / 1 (p=0.38). Time to solve at 1.0: HE+ subset 38/41, 15.8 s per problem (0.6: 36/41,
@@ -452,7 +453,7 @@ Reading it:
 - **Hard problems do.** Every problem lost at 1.0 is a hard one: 4 of 46 solved against 9. At 1.0 the model wanders more, writes
   ~7% more tokens and runs 6 more problems out of budget. Same level only, the drop is not significant on its own (p=0.125). It is
   significant against both other 0.6 levels, and every 0.6 level beats it. Taken together: likely a real cost, not proven by one run.
-- **So the repo's Qwen thinking scores overstate what pi gets on hard problems**, and the "`medium`/`low` tie `xhigh`" result above
+- **So the repo's Qwen thinking scores overstate what the server default gives on hard problems** (and what pi got before the fix), and the "`medium`/`low` tie `xhigh`" result above
   holds at 0.6 only.
 
 **Client fix, applied 2026-10-19 (user's call):** pi's model entry carries `"samplingParams": {"temperature": 0.6}`

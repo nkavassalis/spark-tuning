@@ -334,7 +334,7 @@ On hard ones it thinks hard: all 10 LiveCodeBench problems reasoned, 5–6 of th
 16K cap at both temperatures, so `low` there costs about as much time as `high` (266–272 vs 323–378 s per problem). The earlier
 docs called `low` "no reasoning" from the HumanEval+/MBPP+ runs, where answers average ~150 tokens.
 
-**What this means for pi.** For GLM, unlike Qwen and MiMo, leaving pi at the checkpoint's 1.0 costs no measured quality. 0.6 is
+**What this means for pi.** For GLM, unlike Qwen and MiMo, the server default 1.0 costs no measured quality. 0.6 is
 still the slightly safer choice (fewer runaways, the higher point estimates), and it is what pi already sends Qwen. Untested:
 effort `max` at 0.6, tool calls and long context at 0.6.
 

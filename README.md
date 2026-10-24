@@ -19,14 +19,15 @@ Head-to-head speed and quality on this cluster: **[QWEN_VS_MIMO.md](QWEN_VS_MIMO
 single-user coding Qwen config C is 1.3–2.7× faster and at least as accurate. MiMo is ahead only on multimodal input
 and the 300K window.
 
-> [!WARNING]
-> **Until 2026-10-19 pi did not run Qwen at the sampling settings this repo benchmarks.** pi sends no `temperature` by default, so vLLM applies the
-> checkpoint's `generation_config.json`: **temperature 1.0 / top_p 0.95 / top_k 20**. Every Qwen thinking-on score in this repo was
-> measured at **0.6** / 0.95 / 20 (thinking off: greedy). Re-measured at pi's real settings on 2026-10-19 (FP4-Local, `medium`, 1.0):
+> [!NOTE]
+> **The server's default temperature is 1.0; every Qwen thinking score here is at 0.6, and pi sends 0.6 (since 2026-10-19).**
+> A request that sends no `temperature` gets the checkpoint's `generation_config.json`: **1.0 / top_p 0.95 / top_k 20**. Every Qwen
+> thinking-on score in this repo was measured at **0.6** / 0.95 / 20 (thinking off: greedy). Until 2026-10-19 pi sent no temperature,
+> so it ran at 1.0. Measured at the server default on 2026-10-19 (FP4-Local, `medium`, 1.0):
 > HumanEval+ is unchanged (95.1 vs 95.7), but **LiveCodeBench drops to 37.5% from 43.8%**. All 6 lost problems are hard ones
 > (hard: 4/46 vs 9/46) and 49 vs 43 of 80 hit the 16K cap. Paired: vs `medium` at 0.6, 6 lost / 1 gained, p=0.125; vs `xhigh` at 0.6
-> p=0.016, vs `low` at 0.6 p=0.021. One run each. **Read the repo's Qwen thinking scores as "at 0.6", not "what pi gets".**
-> **Fixed client-side 2026-10-19:** pi now sends 0.6 via `"samplingParams": {"temperature": 0.6}` on the model
+> p=0.016, vs `low` at 0.6 p=0.021. One run each. **The repo's 0.6 scores are what pi gets now; 1.0 is what any client gets that
+> sends nothing.** Client-side fix (2026-10-19): pi sends 0.6 via `"samplingParams": {"temperature": 0.6}` on the model
 > ([pi/models.json.example](pi/models.json.example)). A top-level `"temperature"` key on the model is **silently ignored** by pi.
 > The server default is still 1.0 for any other client (server fix, not applied: `--override-generation-config '{"temperature":0.6}'`).
 > Details: [FP4LOCAL.md](FP4LOCAL.md) "Sampling temperature".

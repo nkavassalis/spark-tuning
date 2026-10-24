@@ -151,7 +151,7 @@ A wider single-run grid (T=0 and 0.6, 1K and 64K, including prose) is in
 
 MiMo was reinstalled for one day to answer a single question: does temperature 0.6 (Qwen's setting) change MiMo's quality, compared
 with the checkpoint's 1.0 that the server applies to any request that sends nothing? The two thinking-off runs before this were
-greedy, so the temperature MiMo actually runs at in pi (server default 1.0, thinking off) had never been measured. Every run used the
+greedy, so MiMo at its server default (1.0, thinking off; what any client that sends no temperature gets) had never been measured. Every run used the
 same harness, data and sandbox as 2026-10-07, top_p 0.95, no top_k, and the server's rep-pen 1.05 ("as deployed"). Each problem
 carries a fixed seed (`crc32` of the prompt or task id), so both temperatures draw the same random stream per problem. One run each,
 paired McNemar. The thinking-off sampled mode is new: `NOTHINK_TEMP` / `NOTHINK_TOP_P` in `quality/run_quality.sh` (unset = the old
@@ -189,7 +189,7 @@ solve count. Two effects stack: it writes more tokens (+15–33%), and it writes
 prefill included). The slower rate is consistent with DFlash drafts being accepted less often at a higher temperature, as with
 Qwen's MTP. That is inferred: draft acceptance wasn't recorded. n=10 can't separate LiveCodeBench solve counts.
 
-**What this means for pi.** pi with no `samplingParams` runs MiMo thinking off at 1.0, the slowest and, on MBPP+, the worst setting
+**What this means for pi.** A client that sends no temperature (pi without `samplingParams`) runs MiMo thinking off at the server default 1.0, the slowest and, on MBPP+, the worst setting
 measured here. 0.6 would be better on both. **But the recipe measured 0.6 making tool-call storms more frequent** (4/4 vs 2/4
 reproductions, see "Tool-call loops" above), and nothing here tests storms: these are single-turn prompts with no tools. So 0.6 is a
 trade (better code, faster, more storm risk), not a free win. The server default stays at 1.0, and the storm rule above still
