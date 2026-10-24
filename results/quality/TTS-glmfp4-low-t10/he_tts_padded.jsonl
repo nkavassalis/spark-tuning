@@ -1,0 +1,164 @@
+{"task_id": "HumanEval/0", "solution": "from typing import List\ndef has_close_elements(numbers: List[float], threshold: float) -> bool:\n    \"\"\" Check if in given list of numbers, are any two numbers closer to each other than\n    given threshold.\n    >>> has_close_elements([1.0, 2.0, 3.0], 0.5)\n    False\n    >>> has_close_elements([1.0, 2.8, 3.0, 4.0, 5.0, 2.0], 0.3)\n    True\n    \"\"\"\n    for i in range(len(numbers)):\n        for j in range(i + 1, len(numbers)):\n            if abs(numbers[i] - numbers[j]) < threshold:\n                return True\n    return False"}
+{"task_id": "HumanEval/4", "solution": "from typing import List\ndef mean_absolute_deviation(numbers: List[float]) -> float:\n    \"\"\" For a given list of input numbers, calculate Mean Absolute Deviation\n    around the mean of this dataset.\n    Mean Absolute Deviation is the average absolute difference between each\n    element and a centerpoint (mean in this case):\n    MAD = average | x - x_mean |\n    >>> mean_absolute_deviation([1.0, 2.0, 3.0, 4.0])\n    1.0\n    \"\"\"\n    mean = sum(numbers) / len(numbers)\n    return sum(abs(x - mean) for x in numbers) / len(numbers)"}
+{"task_id": "HumanEval/8", "solution": "from typing import List, Tuple\ndef sum_product(numbers: List[int]) -> Tuple[int, int]:\n    \"\"\" For a given list of integers, return a tuple consisting of a sum and a product of all the integers in a list.\n    Empty sum should be equal to 0 and empty product should be equal to 1.\n    >>> sum_product([])\n    (0, 1)\n    >>> sum_product([1, 2, 3, 4])\n    (10, 24)\n    \"\"\"\n    total = 0\n    product = 1\n    for n in numbers:\n        total += n\n        product *= n\n    return (total, product)"}
+{"task_id": "HumanEval/12", "solution": "from typing import List, Optional\ndef longest(strings: List[str]) -> Optional[str]:\n    \"\"\" Out of list of strings, return the longest one. Return the first one in case of multiple\n    strings of the same length. Return None in case the input list is empty.\n    >>> longest([])\n\n    >>> longest(['a', 'b', 'c'])\n    'a'\n    >>> longest(['a', 'bb', 'ccc'])\n    'ccc'\n    \"\"\"\n    if not strings:\n        return None\n    return max(strings, key=len)"}
+{"task_id": "HumanEval/16", "solution": "def count_distinct_characters(string: str) -> int:\n    \"\"\" Given a string, find out how many distinct characters (regardless of case) does it consist of\n    >>> count_distinct_characters('xyzXYZ')\n    3\n    >>> count_distinct_characters('Jerry')\n    4\n    \"\"\"\n    return len(set(string.lower()))"}
+{"task_id": "HumanEval/20", "solution": "from typing import List, Tuple\ndef find_closest_elements(numbers: List[float]) -> Tuple[float, float]:\n    \"\"\" From a supplied list of numbers (of length at least two) select and return two that are the closest to each\n    other and return them in order (smaller number, larger number).\n    >>> find_closest_elements([1.0, 2.0, 3.0, 4.0, 5.0, 2.2])\n    (2.0, 2.2)\n    >>> find_closest_elements([1.0, 2.0, 3.0, 4.0, 5.0, 2.0])\n    (2.0, 2.0)\n    \"\"\"\n    sorted_nums = sorted(numbers)\n    best_pair = (sorted_nums[0], sorted_nums[1])\n    min_diff = sorted_nums[1] - sorted_nums[0]\n    for i in range(len(sorted_nums) - 1):\n        diff = sorted_nums[i + 1] - sorted_nums[i]\n        if diff < min_diff:\n            min_diff = diff\n            best_pair = (sorted_nums[i], sorted_nums[i + 1])\n    return best_pair"}
+{"task_id": "HumanEval/24", "solution": "def largest_divisor(n: int) -> int:\n    \"\"\" For a given number n, find the largest number that divides n evenly, smaller than n\n    >>> largest_divisor(15)\n    5\n    \"\"\"\n    for i in range(n // 2, 0, -1):\n        if n % i == 0:\n            return i\n    return 1"}
+{"task_id": "HumanEval/28", "solution": "from typing import List\ndef concatenate(strings: List[str]) -> str:\n    \"\"\" Concatenate list of strings into a single string\n    >>> concatenate([])\n    ''\n    >>> concatenate(['a', 'b', 'c'])\n    'abc'\n    \"\"\"\n    return ''.join(strings)"}
+{"task_id": "HumanEval/32", "solution": "import math\ndef poly(xs: list, x: float):\n    \"\"\"\n    Evaluates polynomial with coefficients xs at point x.\n    return xs[0] + xs[1] * x + xs[1] * x^2 + .... xs[n] * x^n\n    \"\"\"\n    return sum([coeff * math.pow(x, i) for i, coeff in enumerate(xs)])\ndef find_zero(xs: list):\n    \"\"\" xs are coefficients of a polynomial.\n    find_zero find x such that poly(x) = 0.\n    find_zero returns only only zero point, even if there are many.\n    Moreover, find_zero only takes list xs having even number of coefficients\n    and largest non zero coefficient as it guarantees\n    a solution.\n    >>> round(find_zero([1, 2]), 2) # f(x) = 1 + 2x\n    -0.5\n    >>> round(find_zero([-6, 11, -6, 1]), 2) # (x - 1) * (x - 2) * (x - 3) = -6 + 11x - 6x^2 + x^3\n    1.0\n    \"\"\"\n    lo, hi = -1.0, 1.0\n    while poly(xs, lo) * poly(xs, hi) > 0:\n        lo *= 2.0\n        hi *= 2.0\n    for _ in range(100):\n        mid = (lo + hi) / 2.0\n        if poly(xs, mid) == 0:\n            return mid\n        if poly(xs, lo) * poly(xs, mid) < 0:\n            hi = mid\n        else:\n            lo = mid\n    return (lo + hi) / 2.0"}
+{"task_id": "HumanEval/36", "solution": "def fizz_buzz(n: int):\n    \"\"\"Return the number of times the digit 7 appears in integers less than n which are divisible by 11 or 13.\n    >>> fizz_buzz(50)\n    0\n    >>> fizz_buzz(78)\n    2\n    >>> fizz_buzz(79)\n    3\n    \"\"\"\n    return sum(str(i).count('7') for i in range(n) if i % 11 == 0 or i % 13 == 0)"}
+{"task_id": "HumanEval/40", "solution": "from itertools import combinations\ndef triples_sum_to_zero(l: list):\n    \"\"\"\n    triples_sum_to_zero takes a list of integers as an input.\n    it returns True if there are three distinct elements in the list that\n    sum to zero, and False otherwise.\n\n    >>> triples_sum_to_zero([1, 3, 5, 0])\n    False\n    >>> triples_sum_to_zero([1, 3, -2, 1])\n    True\n    >>> triples_sum_to_zero([1, 2, 3, 7])\n    False\n    >>> triples_sum_to_zero([2, 4, -5, 3, 9, 7])\n    True\n    >>> triples_sum_to_zero([1])\n    False\n    \"\"\"\n    return any(a + b + c == 0 for a, b, c in combinations(l, 3))"}
+{"task_id": "HumanEval/44", "solution": "def change_base(x: int, base: int):\n    \"\"\"Change numerical base of input number x to base.\n    return string representation after the conversion.\n    base numbers are less than 10.\n    >>> change_base(8, 3)\n    '22'\n    >>> change_base(8, 2)\n    '1000'\n    >>> change_base(7, 2)\n    '111'\n    \"\"\"\n    if x == 0:\n        return \"0\"\n    sign = \"-\" if x < 0 else \"\"\n    x = abs(x)\n    digits = []\n    while x > 0:\n        digits.append(str(x % base))\n        x //= base\n    return sign + \"\".join(reversed(digits))"}
+{"task_id": "HumanEval/48", "solution": "def is_palindrome(text: str):\n    \"\"\"\n    Checks if given string is a palindrome\n    >>> is_palindrome('')\n    True\n    >>> is_palindrome('aba')\n    True\n    >>> is_palindrome('aaaaa')\n    True\n    >>> is_palindrome('zbcd')\n    False\n    \"\"\"\n    return text == text[::-1]"}
+{"task_id": "HumanEval/52", "solution": "def below_threshold(l: list, t: int):\n    \"\"\"Return True if all numbers in the list l are below threshold t.\n    >>> below_threshold([1, 2, 4, 10], 100)\n    True\n    >>> below_threshold([1, 20, 4, 10], 5)\n    False\n    \"\"\"\n    return all(x < t for x in l)"}
+{"task_id": "HumanEval/56", "solution": "def correct_bracketing(brackets: str):\n    \"\"\" brackets is a string of \"<\" and \">\".\n    return True if every opening bracket has a corresponding closing bracket.\n\n    >>> correct_bracketing(\"<\")\n    False\n    >>> correct_bracketing(\"<>\")\n    True\n    >>> correct_bracketing(\"<<><>>\")\n    True\n    >>> correct_bracketing(\"><<>\")\n    False\n    \"\"\"\n    depth = 0\n    for b in brackets:\n        if b == \"<\":\n            depth += 1\n        else:\n            depth -= 1\n            if depth < 0:\n                return False\n    return depth == 0"}
+{"task_id": "HumanEval/60", "solution": "def sum_to_n(n: int):\n    \"\"\"sum_to_n is a function that sums numbers from 1 to n.\n    >>> sum_to_n(30)\n    465\n    >>> sum_to_n(100)\n    5050\n    >>> sum_to_n(5)\n    15\n    >>> sum_to_n(10)\n    55\n    >>> sum_to_n(1)\n    1\n    \"\"\"\n    return n * (n + 1) // 2"}
+{"task_id": "HumanEval/64", "solution": "def vowels_count(s):\n    \"\"\"Write a function vowels_count which takes a string representing\n    a word as input and returns the number of vowels in the string.\n    Vowels in this case are 'a', 'e', 'i', 'o', 'u'. Here, 'y' is also a\n    vowel, but only when it is at the end of the given word.\n\n    Example:\n    >>> vowels_count(\"abcde\")\n    2\n    >>> vowels_count(\"ACEDY\")\n    3\n    \"\"\"\n    vowels = \"aeiouAEIOU\"\n    count = sum(1 for c in s if c in vowels)\n    if s and s[-1] in \"yY\":\n        count += 1\n    return count"}
+{"task_id": "HumanEval/68", "solution": "def pluck(arr):\n    result = []\n    for i, v in enumerate(arr):\n        if v % 2 == 0:\n            if not result or v < result[0]:\n                result = [v, i]\n    return result"}
+{"task_id": "HumanEval/72", "solution": "def will_it_fly(q, w):\n    '''\n    Write a function that returns True if the object q will fly, and False otherwise.\n    The object q will fly if it's balanced (it is a palindromic list) and the sum of its elements is less than or equal the maximum possible weight w.\n    '''\n    return q == q[::-1] and sum(q) <= w"}
+{"task_id": "HumanEval/76", "solution": "def is_simple_power(x, n):\n    \"\"\"Return true if x is a simple power of n (n**int == x), false otherwise.\"\"\"\n    if x == 1:\n        return True\n    if n <= 1:\n        return False\n    power = 1\n    while power < x:\n        power *= n\n    return power == x"}
+{"task_id": "HumanEval/80", "solution": "def is_happy(s):\n    \"\"\"You are given a string s.\n    Your task is to check if the string is happy or not.\n    A string is happy if its length is at least 3 and every 3 consecutive letters are distinct\n    For example:\n    is_happy(a) => False\n    is_happy(aa) => False\n    is_happy(abcd) => True\n    is_happy(aabb) => False\n    is_happy(adb) => True\n    is_happy(xyy) => False\n    \"\"\"\n    if len(s) < 3:\n        return False\n    for i in range(len(s) - 2):\n        if len(set(s[i:i+3])) != 3:\n            return False\n    return True"}
+{"task_id": "HumanEval/84", "solution": "def solve(N):\n    return bin(sum(int(d) for d in str(N)))[2:]"}
+{"task_id": "HumanEval/88", "solution": "def sort_array(array):\n    arr = list(array)\n    if len(arr) <= 1:\n        return arr\n    if (arr[0] + arr[-1]) % 2 == 0:\n        return sorted(arr, reverse=True)\n    return sorted(arr)"}
+{"task_id": "HumanEval/92", "solution": "def any_int(x, y, z):\n    if not all(isinstance(n, int) for n in (x, y, z)):\n        return False\n    return x + y == z or x + z == y or y + z == x"}
+{"task_id": "HumanEval/96", "solution": "def count_up_to(n):\n    \"\"\"Implement a function that takes a non-negative integer and returns an array of the first n\n    integers that are prime numbers and less than n.\n    for example:\n    count_up_to(5) => [2,3]\n    count_up_to(11) => [2,3,5,7]\n    count_up_to(0) => []\n    count_up_to(20) => [2,3,5,7,11,13,17,19]\n    count_up_to(1) => []\n    count_up_to(18) => [2,3,5,7,11,13,17]\n    \"\"\"\n    def is_prime(k):\n        if k < 2:\n            return False\n        if k < 4:\n            return True\n        if k % 2 == 0:\n            return False\n        i = 3\n        while i * i <= k:\n            if k % i == 0:\n                return False\n            i += 2\n        return True\n\n    return [x for x in range(2, n) if is_prime(x)]"}
+{"task_id": "HumanEval/100", "solution": "def make_a_pile(n):\n    return [n + 2 * i for i in range(n)]"}
+{"task_id": "HumanEval/104", "solution": "def unique_digits(x):\n    return sorted([n for n in x if all(int(d) % 2 == 1 for d in str(n))])"}
+{"task_id": "HumanEval/108", "solution": "def count_nums(arr):\n    \"\"\"\n    Write a function count_nums which takes an array of integers and returns\n    the number of elements which has a sum of digits > 0.\n    If a number is negative, then its first signed digit will be negative:\n    e.g. -123 has signed digits -1, 2, and 3.\n    >>> count_nums([]) == 0\n    >>> count_nums([-1, 11, -11]) == 1\n    >>> count_nums([1, 1, 2]) == 3\n    \"\"\"\n    def digit_sum(n):\n        s = str(abs(n))\n        total = int(s[0]) if n < 0 else 0\n        total += sum(int(c) for c in s) if n < 0 else sum(int(c) for c in s)\n        return total\n\n    return sum(1 for n in arr if digit_sum(n) > 0)"}
+{"task_id": "HumanEval/112", "solution": "def reverse_delete(s, c):\n    result = ''.join(ch for ch in s if ch not in c)\n    return (result, result == result[::-1])"}
+{"task_id": "HumanEval/116", "solution": ""}
+{"task_id": "HumanEval/120", "solution": "def maximum(arr, k):\n    import heapq\n    return sorted(heapq.nlargest(k, arr))"}
+{"task_id": "HumanEval/124", "solution": "def valid_date(date):\n    \"\"\"You have to write a function which validates a given date string and\n    returns True if the date is valid otherwise False.\n    The date is valid if all of the following rules are satisfied:\n    1. The date string is not empty.\n    2. The number of days is not less than 1 or higher than 31 days for months 1,3,5,7,8,10,12. And the number of days is not less than 1 or higher than 30 days for months 4,6,9,11. And, the number of days is not less than 1 or higher than 29 for the month 2.\n    3. The months should not be less than 1 or higher than 12.\n    4. The date should be in the format: mm-dd-yyyy\n    \"\"\"\n    try:\n        date = date.strip()\n        if not date:\n            return False\n        month, day, year = date.split('-')\n        month, day, year = int(month), int(day), int(year)\n        if month < 1 or month > 12:\n            return False\n        if month in (1, 3, 5, 7, 8, 10, 12):\n            if day < 1 or day > 31:\n                return False\n        elif month in (4, 6, 9, 11):\n            if day < 1 or day > 30:\n                return False\n        else:\n            if day < 1 or day > 29:\n                return False\n    except (ValueError, AttributeError):\n        return False\n    return True"}
+{"task_id": "HumanEval/128", "solution": "def prod_signs(arr):\n    if not arr:\n        return None\n    if 0 in arr:\n        sign = 0\n    else:\n        sign = (-1) ** sum(1 for x in arr if x < 0)\n    return sign * sum(abs(x) for x in arr)"}
+{"task_id": "HumanEval/132", "solution": "def is_nested(string):\n    '''\n    Create a function that takes a string as input which contains only square brackets.\n    The function should return True if and only if there is a valid subsequence of brackets \n    where at least one bracket in the subsequence is nested.\n    '''\n    depth = 0\n    max_depth = 0\n    for ch in string:\n        if ch == '[':\n            depth += 1\n            max_depth = max(max_depth, depth)\n        else:\n            depth = max(depth - 1, 0)\n    return max_depth >= 2"}
+{"task_id": "HumanEval/136", "solution": "def largest_smallest_integers(lst):\n    negatives = [x for x in lst if x < 0]\n    positives = [x for x in lst if x > 0]\n    a = max(negatives) if negatives else None\n    b = min(positives) if positives else None\n    return (a, b)"}
+{"task_id": "HumanEval/140", "solution": "def fix_spaces(text):\n    \"\"\"\n    Given a string text, replace all spaces in it with underscores, \n    and if a string has more than 2 consecutive spaces, \n    then replace all consecutive spaces with -\n    \"\"\"\n    result = []\n    i = 0\n    n = len(text)\n    while i < n:\n        if text[i] == ' ':\n            j = i\n            while j < n and text[j] == ' ':\n                j += 1\n            count = j - i\n            if count > 2:\n                result.append('-')\n            else:\n                result.append('_' * count)\n            i = j\n        else:\n            result.append(text[i])\n            i += 1\n    return ''.join(result)"}
+{"task_id": "HumanEval/144", "solution": "def simplify(x, n):\n    \"\"\"Simplify the expression x * n. Returns True if x * n is a whole number.\"\"\"\n    x_num, x_den = map(int, x.split('/'))\n    n_num, n_den = map(int, n.split('/'))\n    product = x_num * n_num\n    divisor = x_den * n_den\n    return product % divisor == 0"}
+{"task_id": "HumanEval/148", "solution": "def bf(planet1, planet2):\n    planets = (\"Mercury\", \"Venus\", \"Earth\", \"Mars\", \"Jupiter\", \"Saturn\", \"Uranus\", \"Neptune\")\n    if planet1 not in planets or planet2 not in planets:\n        return ()\n    i1, i2 = planets.index(planet1), planets.index(planet2)\n    if i1 > i2:\n        i1, i2 = i2, i1\n    return planets[i1 + 1:i2]"}
+{"task_id": "HumanEval/152", "solution": "def compare(game, guess):\n    \"\"\"I think we all remember that feeling when the result of some long-awaited\n    event is finally known. The feelings and thoughts you have at that moment are\n    definitely worth noting down and comparing.\n    Your task is to determine if a person correctly guessed the results of a number of matches.\n    You are given two arrays of scores and guesses of equal length, where each index shows a match. \n    Return an array of the same length denoting how far off each guess was. If they have guessed correctly,\n    the value is 0, and if not, the value is the absolute difference between the guess and the score.\n    \n    \n    example:\n\n    compare([1,2,3,4,5,1],[1,2,3,4,2,-2]) -> [0,0,0,0,3,3]\n    compare([0,5,0,0,0,4],[4,1,1,0,0,-2]) -> [4,4,1,0,0,6]\n    \"\"\"\n    return [abs(g - s) for g, s in zip(game, guess)]"}
+{"task_id": "HumanEval/156", "solution": "def int_to_mini_roman(number):\n    \"\"\"\n    Given a positive integer, obtain its roman numeral equivalent as a string,\n    and return it in lowercase.\n    Restrictions: 1 <= num <= 1000\n    \"\"\"\n    values = [\n        (1000, 'm'), (900, 'cm'), (500, 'd'), (400, 'cd'),\n        (100, 'c'), (90, 'xc'), (50, 'l'), (40, 'xl'),\n        (10, 'x'), (9, 'ix'), (5, 'v'), (4, 'iv'), (1, 'i')\n    ]\n    result = []\n    for value, symbol in values:\n        while number >= value:\n            result.append(symbol)\n            number -= value\n    return ''.join(result)"}
+{"task_id": "HumanEval/160", "solution": "def do_algebra(operator, operand):\n    \"\"\"\n    Given two lists operator, and operand. The first list has basic algebra operations, and \n    the second list is a list of integers. Use the two given lists to build the algebric \n    expression and return the evaluation of this expression.\n    \"\"\"\n    expression = str(operand[0])\n    for op, num in zip(operator, operand[1:]):\n        expression += op + str(num)\n    return eval(expression)"}
+{"task_id": "HumanEval/1", "solution": ""}
+{"task_id": "HumanEval/2", "solution": ""}
+{"task_id": "HumanEval/3", "solution": ""}
+{"task_id": "HumanEval/5", "solution": ""}
+{"task_id": "HumanEval/6", "solution": ""}
+{"task_id": "HumanEval/7", "solution": ""}
+{"task_id": "HumanEval/9", "solution": ""}
+{"task_id": "HumanEval/10", "solution": ""}
+{"task_id": "HumanEval/11", "solution": ""}
+{"task_id": "HumanEval/13", "solution": ""}
+{"task_id": "HumanEval/14", "solution": ""}
+{"task_id": "HumanEval/15", "solution": ""}
+{"task_id": "HumanEval/17", "solution": ""}
+{"task_id": "HumanEval/18", "solution": ""}
+{"task_id": "HumanEval/19", "solution": ""}
+{"task_id": "HumanEval/21", "solution": ""}
+{"task_id": "HumanEval/22", "solution": ""}
+{"task_id": "HumanEval/23", "solution": ""}
+{"task_id": "HumanEval/25", "solution": ""}
+{"task_id": "HumanEval/26", "solution": ""}
+{"task_id": "HumanEval/27", "solution": ""}
+{"task_id": "HumanEval/29", "solution": ""}
+{"task_id": "HumanEval/30", "solution": ""}
+{"task_id": "HumanEval/31", "solution": ""}
+{"task_id": "HumanEval/33", "solution": ""}
+{"task_id": "HumanEval/34", "solution": ""}
+{"task_id": "HumanEval/35", "solution": ""}
+{"task_id": "HumanEval/37", "solution": ""}
+{"task_id": "HumanEval/38", "solution": ""}
+{"task_id": "HumanEval/39", "solution": ""}
+{"task_id": "HumanEval/41", "solution": ""}
+{"task_id": "HumanEval/42", "solution": ""}
+{"task_id": "HumanEval/43", "solution": ""}
+{"task_id": "HumanEval/45", "solution": ""}
+{"task_id": "HumanEval/46", "solution": ""}
+{"task_id": "HumanEval/47", "solution": ""}
+{"task_id": "HumanEval/49", "solution": ""}
+{"task_id": "HumanEval/50", "solution": ""}
+{"task_id": "HumanEval/51", "solution": ""}
+{"task_id": "HumanEval/53", "solution": ""}
+{"task_id": "HumanEval/54", "solution": ""}
+{"task_id": "HumanEval/55", "solution": ""}
+{"task_id": "HumanEval/57", "solution": ""}
+{"task_id": "HumanEval/58", "solution": ""}
+{"task_id": "HumanEval/59", "solution": ""}
+{"task_id": "HumanEval/61", "solution": ""}
+{"task_id": "HumanEval/62", "solution": ""}
+{"task_id": "HumanEval/63", "solution": ""}
+{"task_id": "HumanEval/65", "solution": ""}
+{"task_id": "HumanEval/66", "solution": ""}
+{"task_id": "HumanEval/67", "solution": ""}
+{"task_id": "HumanEval/69", "solution": ""}
+{"task_id": "HumanEval/70", "solution": ""}
+{"task_id": "HumanEval/71", "solution": ""}
+{"task_id": "HumanEval/73", "solution": ""}
+{"task_id": "HumanEval/74", "solution": ""}
+{"task_id": "HumanEval/75", "solution": ""}
+{"task_id": "HumanEval/77", "solution": ""}
+{"task_id": "HumanEval/78", "solution": ""}
+{"task_id": "HumanEval/79", "solution": ""}
+{"task_id": "HumanEval/81", "solution": ""}
+{"task_id": "HumanEval/82", "solution": ""}
+{"task_id": "HumanEval/83", "solution": ""}
+{"task_id": "HumanEval/85", "solution": ""}
+{"task_id": "HumanEval/86", "solution": ""}
+{"task_id": "HumanEval/87", "solution": ""}
+{"task_id": "HumanEval/89", "solution": ""}
+{"task_id": "HumanEval/90", "solution": ""}
+{"task_id": "HumanEval/91", "solution": ""}
+{"task_id": "HumanEval/93", "solution": ""}
+{"task_id": "HumanEval/94", "solution": ""}
+{"task_id": "HumanEval/95", "solution": ""}
+{"task_id": "HumanEval/97", "solution": ""}
+{"task_id": "HumanEval/98", "solution": ""}
+{"task_id": "HumanEval/99", "solution": ""}
+{"task_id": "HumanEval/101", "solution": ""}
+{"task_id": "HumanEval/102", "solution": ""}
+{"task_id": "HumanEval/103", "solution": ""}
+{"task_id": "HumanEval/105", "solution": ""}
+{"task_id": "HumanEval/106", "solution": ""}
+{"task_id": "HumanEval/107", "solution": ""}
+{"task_id": "HumanEval/109", "solution": ""}
+{"task_id": "HumanEval/110", "solution": ""}
+{"task_id": "HumanEval/111", "solution": ""}
+{"task_id": "HumanEval/113", "solution": ""}
+{"task_id": "HumanEval/114", "solution": ""}
+{"task_id": "HumanEval/115", "solution": ""}
+{"task_id": "HumanEval/117", "solution": ""}
+{"task_id": "HumanEval/118", "solution": ""}
+{"task_id": "HumanEval/119", "solution": ""}
+{"task_id": "HumanEval/121", "solution": ""}
+{"task_id": "HumanEval/122", "solution": ""}
+{"task_id": "HumanEval/123", "solution": ""}
+{"task_id": "HumanEval/125", "solution": ""}
+{"task_id": "HumanEval/126", "solution": ""}
+{"task_id": "HumanEval/127", "solution": ""}
+{"task_id": "HumanEval/129", "solution": ""}
+{"task_id": "HumanEval/130", "solution": ""}
+{"task_id": "HumanEval/131", "solution": ""}
+{"task_id": "HumanEval/133", "solution": ""}
+{"task_id": "HumanEval/134", "solution": ""}
+{"task_id": "HumanEval/135", "solution": ""}
+{"task_id": "HumanEval/137", "solution": ""}
+{"task_id": "HumanEval/138", "solution": ""}
+{"task_id": "HumanEval/139", "solution": ""}
+{"task_id": "HumanEval/141", "solution": ""}
+{"task_id": "HumanEval/142", "solution": ""}
+{"task_id": "HumanEval/143", "solution": ""}
+{"task_id": "HumanEval/145", "solution": ""}
+{"task_id": "HumanEval/146", "solution": ""}
+{"task_id": "HumanEval/147", "solution": ""}
+{"task_id": "HumanEval/149", "solution": ""}
+{"task_id": "HumanEval/150", "solution": ""}
+{"task_id": "HumanEval/151", "solution": ""}
+{"task_id": "HumanEval/153", "solution": ""}
+{"task_id": "HumanEval/154", "solution": ""}
+{"task_id": "HumanEval/155", "solution": ""}
+{"task_id": "HumanEval/157", "solution": ""}
+{"task_id": "HumanEval/158", "solution": ""}
+{"task_id": "HumanEval/159", "solution": ""}
+{"task_id": "HumanEval/161", "solution": ""}
+{"task_id": "HumanEval/162", "solution": ""}
+{"task_id": "HumanEval/163", "solution": ""}

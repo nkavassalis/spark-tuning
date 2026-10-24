@@ -23,7 +23,8 @@ Public notes, scripts and measured results from tuning LLM serving on a 2-node D
 - nvidia GLM-5.3-Flash-FP4-Local (QAD NVFP4 + MXFP8, all 288 experts, same b12x build): `GLMFP4.md`. Benchmarked 2026-10-17 at TP=2,
   MTP K=3 (nvidia's K=5 is the slowest K here), `--language-model-only` (the full recipe dipped the head to ~1.4 GiB free after
   weight load). Best LiveCodeBench on the cluster (55.0%, vs config C p=0.003), ties elsewhere; decode 41/37 tok/s (effort low/max)
-  vs Qwen FP4-Local 63/50. **Removed from both nodes** on 2026-10-17; `glmfp4/setup_nodes.sh && DEFAULT_EFFORT=high SPEC_TOKENS=3 glmfp4/up.sh` rebuilds it (166 GiB), `glmfp4/down.sh --fp4local` goes back.
+  vs Qwen FP4-Local 63/50. **Removed from both nodes** on 2026-10-17; reinstalled overnight 2026-10-23/24 for a temperature study (0.6 vs 1.0: no
+  significant quality effect, LCB 57.5 / 53.8; `low` timed at 4.2 s per HumanEval+ problem; GLMFP4.md "Sampling temperature"), then removed again. `glmfp4/setup_nodes.sh && DEFAULT_EFFORT=high SPEC_TOKENS=3 glmfp4/up.sh` rebuilds it (166 GiB), `glmfp4/down.sh --fp4local` goes back.
 - Head-to-head: `QWEN_VS_MIMO.md` (and the three-way tables in `GLM.md`). **Current state: nvidia FP4-Local (K=2) serving on :8000 as
   `qwen3.8-flash-next`; config C is installed and comes back with `fp4local/down.sh --qwen`.**
   MiMo is not installed; `mimo/setup_nodes.sh && mimo/up.sh` rebuilds it (~30 min, 178 GB download).
@@ -88,7 +89,7 @@ mimo/down.sh --qwen                  # back to Qwen
 GLM: `GLM_VARIANT=E192 glm/up.sh` (or E224), `glm/down.sh --qwen`; API `http://<head>:8000/v1`, model `glm53-flash-e192`.
 FP4-Local: `fp4local/up.sh` (needs `fp4local/setup_nodes.sh` once; checkpoint is in the HF cache, whose 2.x blob store lives at `~/.cache/huggingface/hub/blobs/`).
 **Benchmark lock-out:** put `API_KEY=` in `cluster.env`; `fp4local/up.sh` serves with `--api-key`, and `bench_decode.py`, `quality/*` and the runners send it. In the b12x build `/metrics` is behind the key too.
-GLM always thinks: send `chat_template_kwargs.reasoning_effort` = `low` (no reasoning) or `high`; **omitted = `max`**.
+GLM always thinks: send `chat_template_kwargs.reasoning_effort` = `low` (no reasoning on easy prompts, but up to 50K+ characters on hard ones) or `high`; **omitted = `max`**.
 Endpoints (MiMo): agents `http://<head>:8000/mimo/v1` (proxy); raw vLLM `http://<head>:8888/v1`; model `mimo-v2.6-flash`.
 On the nodes: recipe checkout `~/mimo-recipe`, weights `~/models/MiMo-V2.6-Flash-RL`, cache `~/mimo-cache`,
 proxy files and log `~/mimo-toolcap/` (container `mimo-toolcap`), vLLM container `vllm_mimo`.

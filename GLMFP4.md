@@ -17,6 +17,7 @@ compressed scale format as Qwen FP4-Local, so the same community **b12x** vLLM b
 | HumanEval+ / MBPP+ / GSM8K, thinking off (GLM: effort low) | 93.3 / 79.9 / 96.4 | 94.5 / 79.9 / 96.4 | 92.1 / 82.0 / — | **91.5 / 81.7 / 96.5** | tie (every p ≥ 0.21) |
 | HumanEval+, thinking (Qwen: effort xhigh, the default; GLM: effort high), 16K budget | 92.7 | 92.7 (`medium` 95.7, `low` 94.5) | — (E192 92.7) | **92.1** | tie |
 | **LiveCodeBench**, thinking, 16K budget | 41.2 | 46.2 (`medium` 43.8, `low` 47.5) | — (E192 47.5) | **55.0** | **GLM FP4: best; vs Qwen C p=0.003**, vs FP4-Local `xhigh` p=0.065, `medium` p=0.012, `low` p=0.15 |
+| Temperature 0.6 vs 1.0 (2026-10-24; GLM only) | | | | `low` MBPP+ 83.6 / 83.1, `high` LCB **57.5** / 53.8 | **no significant effect** (every p ≥ 0.45; noise ±2–3) |
 | Long context 64K/128K | 95.1% | 97.2% | 100% | **99.3%** | GLM ≥ Qwen (vs C p=0.07) |
 | Corpus bits/byte (side note) | 0.048 | 0.048 | 0.141 | **0.087** | Qwen; GLM FP4 far better than the pruned builds |
 | Decode, 6-cell mean, thinking off / on (GLM: effort low / max), tok/s | 67.0 / 52.1 | 63.3 / 49.5 | 30.0 / 27.9 | **41.0 / 36.8** | Qwen ×1.35–1.6; GLM FP4 +37% / +32% over E224 |
@@ -40,6 +41,8 @@ At **`medium` (what pi actually sends) Qwen takes 14.7 s and at `low` 13.4 s**, 
 GLM at high solved 2 of 10 to Qwen's 1 at every level ([FP4LOCAL.md](FP4LOCAL.md) "Reasoning effort").
 
 **Removed from both nodes on 2026-10-17** after the tests (`glmfp4/setup_nodes.sh` re-downloads it, 166 GiB); the live model is unchanged (Qwen FP4-Local, K=2).
+Reinstalled overnight 2026-10-23/24 for the temperature study ("Sampling temperature" below: no quality effect; `low` timed at
+4.2 s per HumanEval+ problem) and removed again.
 
 ---
 
@@ -79,7 +82,7 @@ Scripts: `glmfp4/` (`lib.sh`, `setup_nodes.sh`, `up.sh`, `down.sh [--fp4local|--
 | Parallel layout | **TP=2 only.** EP fails at startup on this build (see Tuning). |
 | torch.compile | On, as in nvidia's recipe (AOT compile). Same terms as FP4-Local: recipe as written, everything else stopped first. A guard sampled `MemAvailable` on both nodes every 2–5 s and killed the container below 2 GiB. |
 | Lock-out | `--api-key` from the untracked `cluster.env`; unauthenticated requests got 401 (`/metrics` included). `num_requests_running` was 0 before and after every speed run. |
-| Reasoning control | Same template as the other GLM builds: `chat_template_kwargs.reasoning_effort` = `low` (no reasoning), `high`, anything else / omitted = **`max`**. Parsers `glm45` / `glm47`. Tool call (one `get_weather` request) parsed correctly. |
+| Reasoning control | Same template as the other GLM builds: `chat_template_kwargs.reasoning_effort` = `low` (little or no reasoning on easy prompts; long reasoning on hard ones, see "Sampling temperature"), `high`, anything else / omitted = **`max`**. Parsers `glm45` / `glm47`. Tool call (one `get_weather` request) parsed correctly. |
 
 ### Boot and memory: why `--language-model-only`
 
@@ -283,6 +286,64 @@ b12x kernels), but we didn't confirm it: two identical explicit-high requests we
 `DEFAULT_EFFORT=high`** (pi sends one; see the correction above). It's off by default so the script reproduces nvidia's recipe as written.
 
 ---
+
+## Sampling temperature: 0.6 vs the checkpoint's 1.0 (2026-10-24)
+
+GLM was reinstalled overnight to answer the question the Qwen and MiMo temperature studies raised: does temperature 0.6 change it,
+compared with the checkpoint's 1.0 that the server applies when a request sends nothing (pi without `samplingParams`)? Every
+thinking result above was already at 1.0; thinking off (effort `low`) had only been run greedy. Same server as above (K=3, LM-only,
+`DEFAULT_EFFORT=high`), same harness, data, sandbox and per-problem seeds, top_p 0.95, no top_k, API key on, nothing else on the server.
+The 1.0 thinking run was repeated the same night, as a noise floor against 2026-10-17. One run each, paired McNemar.
+
+**Quality** (full sets, concurrency 8; effort `low` at `max_tokens` 4096, effort `high` at a 16K budget):
+
+| Test | 10-17 (`low`: greedy; `high`: 1.0) | **0.6** | **1.0** | 0.6 vs 1.0 (0.6-only / 1.0-only) |
+|---|---|---|---|---|
+| HumanEval+, `low` | 91.5 | 92.1 | 91.5 | 5 / 4, p=1.0 |
+| MBPP+, `low` | 81.7 | **83.6** | 83.1 | 7 / 5, p=0.77 (0.6 vs greedy: 2 / 9, p=0.065) |
+| HumanEval+, `high` | 92.1 | 90.2 | 91.5 | 4 / 6, p=0.75 |
+| **LiveCodeBench**, `high` | 55.0 | **57.5** | 53.8 | 5 / 2, p=0.45 |
+
+- **No temperature effect on quality, in either mode.** Nothing reaches p < 0.05. Today's 1.0 against 10-17's 1.0 (same settings,
+  same seeds) moved LiveCodeBench 55.0 → 53.8 (3 / 4 flips) and HumanEval+ 92.1 → 91.5. That ±2–3 points is the noise, and it covers
+  every 0.6-vs-1.0 gap. GLM is unlike MiMo here (MBPP+ −4.8 at 1.0, p=0.011) and Qwen (LiveCodeBench 37.5 vs 43.8 at `medium`).
+- 57.5 is the best LiveCodeBench on the cluster, but it isn't distinguishable from GLM's 55.0 / 53.8 at 1.0.
+- Lengths: `low` HumanEval+ / MBPP+ mean 150 / 135 tokens at 0.6, 153 / 141 at 1.0 (greedy 144 / 128), none capped. `high`
+  HumanEval+ / LiveCodeBench 410 / 7,847 at 0.6 (31/80 capped), 358 / 7,260 at 1.0 (28 capped); 10-17: 429 / 7,918 (31 capped).
+
+**Time to solve** (`quality/run_tts.sh`, one problem at a time, 16K budget, the COMPARISON.md subsets; first-ever timing at `low`):
+
+| Setting | HE+ solved / 41 | s per problem | s per solved | median s | mean tokens | LCB solved / 10 | s per problem | mean tokens |
+|---|---|---|---|---|---|---|---|---|
+| `low`, **0.6** | 35 | **4.2** | **4.9** | | 166 | 1 | 266 | 8,758 |
+| `low`, 1.0 | 35 | 15.3 | 17.9 | | 541 | 2 | 272 | 8,503 |
+| `high`, **0.6** | **38** | 16.2 | 17.5 | 7.0 | 703 | 2 | 344 | 11,788 |
+| `high`, 1.0 | 37 | 23.7 | 26.3 | 5.9 | 874 | 2 | 378 | 12,618 |
+| `high`, 1.0 (10-17, above) | 36 | 18.5 | 21.1 | | 728 | 2 | 323 | 10,680 |
+
+**Read the HumanEval+ seconds with care: the gaps are one or two runaway answers.** At `low` 1.0, HumanEval/116 reasoned 53K
+characters into the 16K cap without answering (502 s of the 626 s total; at 0.6 the same problem finished in 1,368 tokens).
+Without it, both temperatures run about 3 s per problem (median answer 114 vs 124 tokens). At `high`, the *median* problem is
+faster at 1.0 (5.9 vs 7.0 s), and 1.0 was slower on only 15 of 41 problems. The mean gap is the tail: one capped answer in each run,
+plus a 236 s one at 1.0. Two such events in 41 problems can't separate the temperatures. The weak signal, consistent with Qwen and
+MiMo, is that 1.0 runs away more often.
+
+**`low` is not "no reasoning".** On easy problems it is, nearly: 6 of 41 HumanEval+ answers carried 7–85 characters of reasoning, and one
+(HumanEval/116) 2.8K at 0.6 and 53K at 1.0.
+On hard ones it thinks hard: all 10 LiveCodeBench problems reasoned, 5–6 of them for 20K–54K characters, and 4–5 of 10 ran into the
+16K cap at both temperatures, so `low` there costs about as much time as `high` (266–272 vs 323–378 s per problem). The earlier
+docs called `low` "no reasoning" from the HumanEval+/MBPP+ runs, where answers average ~150 tokens.
+
+**What this means for pi.** For GLM, unlike Qwen and MiMo, leaving pi at the checkpoint's 1.0 costs no measured quality. 0.6 is
+still the slightly safer choice (fewer runaways, the higher point estimates), and it is what pi already sends Qwen. Untested:
+effort `max` at 0.6, tool calls and long context at 0.6.
+
+Files: `results/quality/GF4-t{06,10}-{off,deep}/`, `results/quality/TTS-glmfp4-{low,high}-t{06,10}/`. Lowest free memory over the
+night: 3.7 GiB (memory guard at 1.5 GiB never fired). Runs, on the worker, with `API=http://<head-link-ip>:8000 API_KEY=...
+MODEL=glm53-flash-fp4local`: `TASKS="humaneval mbpp" NOTHINK_KWARGS='{"chat_template_kwargs":{"reasoning_effort":"low"}}'
+NOTHINK_MAX_TOKENS=4096 NOTHINK_TEMP=0.6 NOTHINK_TOP_P=0.95 quality/run_quality.sh <label>`; `TASKS="humaneval lcb"
+THINK_KWARGS='{"chat_template_kwargs":{"reasoning_effort":"high"}}' THINK_TEMP=0.6 THINK_TOP_P=0.95 THINK_TOP_K= quality/run_deep.sh
+<label>`; the same `THINK_*` with `quality/run_tts.sh <label>` (effort `low` or `high`).
 
 ## How to run it again
 
