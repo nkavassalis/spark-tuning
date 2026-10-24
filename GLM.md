@@ -9,6 +9,8 @@ with stock vLLM 0.31.0 at TP=2 over the CX7 link, with MTP K=2. Revisions tested
 **Status (2026-10-13):** evaluated overnight, then the cluster went back to Qwen config C and GLM was **removed from both
 nodes** (both checkpoints, the vLLM 0.31.0 image, `~/glm-cache`). To run it again: `GLM_VARIANT=E224 glm/setup_nodes.sh`
 (158 GB download + rsync to the worker, ~45 min) then `GLM_VARIANT=E224 glm/up.sh` (~10 min). Use `E192` for the smaller build.
+Since 2026-10-16 the live model is Qwen FP4-Local ([FP4LOCAL.md](FP4LOCAL.md)); `glm/up.sh` stops it first and
+`glm/down.sh --fp4local` brings it back. The nvidia GLM FP4-Local build ([GLMFP4.md](GLMFP4.md), 2026-10-17) is the GLM to run now.
 Removal note: the container writes root-owned files into `~/glm-cache`, so delete it with a privileged container
 (`docker run --rm --privileged -v $HOME:/h --entrypoint sh <image> -c 'rm -rf /h/glm-cache'`), then `~/models/GLM5.3-Flash-*`.
 
@@ -31,14 +33,14 @@ Removal note: the container writes root-owned files into `~/glm-cache`, so delet
 **Bottom line:** GLM E192 is at least as accurate as anything we've run here. It ties Qwen config C on code (HumanEval+, MBPP+) and math,
 and leads on LiveCodeBench and long-context two-hop retrieval, though only the long-context lead over MiMo is statistically
 significant. It is also **2–3× slower than Qwen** at single-user decode (11.5 vs 25.5 engine steps/s with similar MTP acceptance)
-and ~1.5× slower at prefill. For pi as a coding agent, Qwen config C stays the better default: same pass rates at more than twice the
-speed. GLM is the one to try when correctness at long context matters more than latency. If you do, **set `reasoning_effort`**:
+and ~1.5× slower at prefill. For pi as a coding agent, Qwen config C stayed the better default: same pass rates at more than twice the
+speed (as of 2026-10-13; since 2026-10-16 the default is Qwen FP4-Local, and the best GLM LiveCodeBench score is now GLM FP4-Local's, [GLMFP4.md](GLMFP4.md)). GLM is the one to try when correctness at long context matters more than latency. If you do, **set `reasoning_effort`**:
 the default is `max`.
 
 **E224** (224 experts, 9 GiB more weights per node) runs at the same speed, still leaves 11–13 GiB free per node, and scored
 **100% on long context** (significantly ahead of Qwen, p=0.016) and 82.0 on MBPP+ (+2.1 over E192, not significant). It also has
-better corpus likelihood (0.141 vs 0.196 bits/byte). Its GSM8K and thinking-mode tests weren't run. If you want GLM on this cluster,
-**E224 is the better pick**: it fits fine at 262K context and loses nothing in speed. See [E224](#e224-224-experts-kept-158-gb).
+better corpus likelihood (0.141 vs 0.196 bits/byte). Its GSM8K and thinking-mode tests weren't run. Of these two NAS-pruned builds,
+**E224 is the better pick** (for GLM today, see [GLMFP4.md](GLMFP4.md)): it fits fine at 262K context and loses nothing in speed. See [E224](#e224-224-experts-kept-158-gb).
 
 ---
 
@@ -77,7 +79,7 @@ GLM-5.3's chat template has no thinking switch. It takes `reasoning_effort` (`lo
 passed as `chat_template_kwargs.reasoning_effort` (or the top-level OpenAI field). **A client that sends nothing gets
 `max`.** pi sends `medium` by default (corrected 2026-10-18; this doc first said it sends nothing), which this template also
 turns into `max`, so pi at its default thinking level would get max-effort reasoning on every turn. Inferred, not run with pi.
-At `low` the model emitted **zero reasoning tokens** on every request we inspected, so `low` is the counterpart
+At `low` the model emitted **zero reasoning tokens** on every (easy) request we inspected here, so `low` is the counterpart
 of Qwen/MiMo's "thinking off" in every table here. The harness gained env knobs for this (`NOTHINK_KWARGS`, `THINK_KWARGS`,
 `NOTHINK_MAX_TOKENS` in `quality/`, `--chat-kwargs` in `scripts/bench_decode.py`). Their defaults reproduce the old
 Qwen/MiMo requests exactly.
@@ -268,9 +270,10 @@ LiveCodeBench.
 ## How to run it again
 
 ```bash
-GLM_VARIANT=E192 glm/setup_nodes.sh   # idempotent; downloads (139 GB) and rsyncs to the worker if missing
-GLM_VARIANT=E192 glm/up.sh            # stops Qwen, ~10 min to ready; API http://<head>:8000/v1, model glm53-flash-e192
-glm/down.sh --qwen                    # back to Qwen config C (~11 min)
+GLM_VARIANT=E192 glm/setup_nodes.sh   # not installed now: run this first; downloads (139 GB) and rsyncs to the worker
+GLM_VARIANT=E192 glm/up.sh            # stops Qwen (FP4-Local or config C), ~10 min to ready; API http://<head>:8000/v1, model glm53-flash-e192
+glm/down.sh --fp4local                # back to the live Qwen FP4-Local (LIVE=1 SPEC_TOKENS=2 fp4local/up.sh)
+glm/down.sh --qwen                    # or back to Qwen config C (~11 min)
 ```
 
 Knobs on `glm/up.sh`: `SPEC_TOKENS` (0 = no MTP), `MAX_LEN`, `MAX_SEQS`, `KV_BYTES`, `GMU`, `CUDAGRAPH`.

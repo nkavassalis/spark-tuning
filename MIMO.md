@@ -7,8 +7,9 @@ fp8 attention + MXFP4 experts) served with vLLM TP=2 across both Sparks with the
 pinned at commit `9c699a2`. The recipe's image, four patches and serving defaults are used **unchanged**.
 This page covers what we added around it, what we measured, and the agent caveats.
 
-**Status (2026-10-07):** set up, tested, benchmarked, then **removed from both nodes**. Qwen config C serves the
-cluster; MiMo is kept only as this documentation plus the scripts and results here. To run it again for future
+**Status (2026-10-07):** set up, tested, benchmarked, then **removed from both nodes**. Reinstalled for one day on 2026-10-23
+for the temperature study below, then removed again; **not installed now**. The cluster serves Qwen FP4-Local
+([FP4LOCAL.md](FP4LOCAL.md), since 2026-10-16); MiMo is kept only as this documentation plus the scripts and results here. To run it again for future
 model investigation: `mimo/setup_nodes.sh` (re-downloads 178 GB weights, ~25 min, then rsyncs to the worker in
 ~6 min) and `mimo/up.sh` (~14 min to serving). Agents then use `http://<head>:8000/mimo/v1` (the tool-call-cap
 proxy); the raw endpoint is `http://<head>:8888/v1`; model id `mimo-v2.6-flash`.
@@ -85,9 +86,9 @@ All scripts read hosts from the untracked `cluster.env`; nothing site-specific i
 | Weights + cache under `$HOME`, not `/var/tmp` | `mimo/mimo.env.example` | systemd-tmpfiles ages out `/var/tmp` (30 days on Ubuntu) and would eat 178 GB of weights |
 | Download on the head only, rsync to the worker over the CX7 link | `mimo/setup_nodes.sh` | 178 GB: ~25 min from HF, then 5.5 min head→worker at ~530 MB/s. No NFS (would need root). |
 | Drop the page cache before launch without sudo | `drop_caches` in `mimo/lib.sh` | recipe's `serve.sh` tries `sudo -n`, which fails silently here; at GMU 0.90 vLLM's probe doesn't count page cache. We run `echo 3 > /proc/sys/vm/drop_caches` in a privileged container (SSH user is in the docker group). |
-| Stop Qwen → worker → head → proxy → wait for ready | `mimo/up.sh` | the recipe's `serve.sh` exits 1 on the worker even on success (last line is `[ "$R" = 0 ] && echo`), so `up.sh` checks the container instead |
+| Stop Qwen (config C or the live FP4-Local) → worker → head → proxy → wait for ready | `mimo/up.sh` | the recipe's `serve.sh` exits 1 on the worker even on success (last line is `[ "$R" = 0 ] && echo`), so `up.sh` checks the container instead |
 | Tool-call-cap proxy as a container on the head | `mimo/up.sh`, `mimo/toolcap/` | `node:22-alpine`, `--restart unless-stopped`, host network, `:8000`. One-line change to upstream (`upstream.diff`): bind address from `TOOLCAP_HOST` (upstream hardcodes loopback). |
-| Switch back | `mimo/down.sh [--qwen]` | `--qwen` relaunches the Qwen repo's `./start.sh --launch` |
+| Switch back | `mimo/down.sh [--fp4local\|--qwen]` | `--fp4local` brings back the live model (`LIVE=1 SPEC_TOKENS=2 fp4local/up.sh`); `--qwen` relaunches config C's `./start.sh --launch` |
 
 Serving config (recipe defaults): TP=2 (expert parallelism not enabled by anything in this repo; Qwen config C runs TP=2 + EP), fp8 KV, GMU 0.90, `max-model-len` 300000, `max-num-seqs` 8, DFlash 7, marlin
 MXFP4 MoE, DeepGEMM off, thinking off, `--no-async-scheduling`, `--generation-config auto`, rep-pen 1.05.
@@ -189,7 +190,7 @@ solve count. Two effects stack: it writes more tokens (+15–33%), and it writes
 prefill included). The slower rate is consistent with DFlash drafts being accepted less often at a higher temperature, as with
 Qwen's MTP. That is inferred: draft acceptance wasn't recorded. n=10 can't separate LiveCodeBench solve counts.
 
-**What this means for pi.** A client that sends no temperature (pi without `samplingParams`) runs MiMo thinking off at the server default 1.0, the slowest and, on MBPP+, the worst setting
+**What this means for pi.** A client that sends no temperature runs MiMo thinking off at the server default 1.0, the slowest and, on MBPP+, the worst setting
 measured here. 0.6 would be better on both. **But the recipe measured 0.6 making tool-call storms more frequent** (4/4 vs 2/4
 reproductions, see "Tool-call loops" above), and nothing here tests storms: these are single-turn prompts with no tools. So 0.6 is a
 trade (better code, faster, more storm risk), not a free win. The server default stays at 1.0, and the storm rule above still

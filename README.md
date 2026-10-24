@@ -96,8 +96,8 @@ mimo/setup_nodes.sh      # (re)provision: recipe checkout, ~178 GB weights on bo
 mimo/up.sh               # stop Qwen, start MiMo + tool-call-cap proxy (~11-15 min)
 mimo/down.sh --qwen      # stop MiMo, relaunch config C (~11 min)
 mimo/down.sh --fp4local  # stop MiMo, relaunch the live FP4-Local
-GLM_VARIANT=E224 glm/setup_nodes.sh && GLM_VARIANT=E224 glm/up.sh   # GLM-5.3-Flash (not installed now); glm/down.sh --qwen to go back
-fp4local/up.sh               # nvidia FP4-Local (installed); LIVE=1 serves it as qwen3.8-flash-next with no key; fp4local/down.sh --qwen
+GLM_VARIANT=E224 glm/setup_nodes.sh && GLM_VARIANT=E224 glm/up.sh   # GLM-5.3-Flash (not installed now); glm/down.sh --fp4local to go back
+LIVE=1 SPEC_TOKENS=2 fp4local/up.sh   # the live model: nvidia FP4-Local as qwen3.8-flash-next, no key; plain fp4local/up.sh = benchmark mode (K=4, API key); fp4local/down.sh --qwen
 glmfp4/setup_nodes.sh && DEFAULT_EFFORT=high SPEC_TOKENS=3 glmfp4/up.sh   # nvidia GLM FP4-Local (not installed now); glmfp4/down.sh --fp4local
 
 MiMo is **not installed** on the nodes right now (removed 2026-10-07, reinstalled and removed again 2026-10-23); `setup_nodes.sh` rebuilds it from scratch.
@@ -108,7 +108,7 @@ MiMo is **not installed** on the nodes right now (removed 2026-10-07, reinstalle
 ```bash
 node --test mimo/toolcap/*.test.cjs               # proxy unit tests (no network, no GPU)
 API=http://<head>:8000 mimo/test_mimo.py  # MiMo functional checks; needs the MiMo setup running
-scripts/check_cluster.sh                  # Qwen health/config check (while Qwen is serving)
+scripts/check_cluster.sh                  # config C health/config check (inspects vllm-fn only, not the live FP4-Local)
 scripts/prefix_probe.py                   # prefix-cache behaviour: cold / warm / competing / idle
 scripts/stage_pi_compaction.py --check    # pi client staging (see PI.md); --revert to undo
 ```

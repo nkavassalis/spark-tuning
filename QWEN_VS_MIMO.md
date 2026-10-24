@@ -10,10 +10,14 @@ the server. Each model runs its tested deployment:
 | Parallel layout | TP=2 **+ expert parallelism** | TP=2; EP not enabled by our files (the recipe's launch script wasn't checked) |
 | KV / context | fp8, GMU 0.835, 262K, max-num-seqs 8 | fp8, GMU 0.90, 300K, max-num-seqs 8 |
 | KV pool (boot log 2026-10-07) | 4.25M tokens (16.2× full 262K) | 2.05M tokens (6.8× full 300K) |
-| Server sampling defaults | vLLM defaults; thinking on by template default | temperature 1.0 / top_p 0.95 / rep-pen 1.05; thinking off |
+| Server sampling defaults | checkpoint generation_config: temperature 1.0 / top_p 0.95 / top_k 20; thinking on (`xhigh`) by template default | temperature 1.0 / top_p 0.95 / rep-pen 1.05; thinking off |
 
 > **2026-10-13:** GLM-5.3-Flash (autotrust E192/E224) was measured with the same benchmarks and harness; three-way tables
 > are in [GLM.md](GLM.md).
+>
+> **2026-10-24:** neither deployment here is serving (live: Qwen FP4-Local, [FP4LOCAL.md](FP4LOCAL.md); MiMo not installed).
+> MiMo at 0.6 vs 1.0 (thinking-off MBPP+ 75.4 vs 70.6, p=0.011) and time to solve: MIMO.md "Sampling temperature".
+> Every model × setting: [COMPARISON.md](COMPARISON.md).
 
 ## Summary
 
@@ -76,8 +80,8 @@ The wider single-run grid (T=0 and 0.6, 1K and 64K, adds prose) shows the same p
 
 (Qwen vs MiMo, tok/s.) Prose is MiMo's worst case: DFlash accepts ~1 token per step on it.
 
-**Thinking on vs off matters for Qwen's speed.** With the server/template default (thinking on, the way pi
-talks to the `qwen` provider today) the same Qwen cells measure 48–56 tok/s, the same as the 2026-09-27 numbers
+**Thinking on vs off matters for Qwen's speed.** With the template default (thinking on at `xhigh`, which is what
+pi sent on 2026-10-07; pi now sends `medium` at T=0.6) the same Qwen cells measure 48–56 tok/s, the same as the 2026-09-27 numbers
 (`results/mimo/qwen-bench_decode-vsmimo-default-2026-10-07.json`). MTP acceptance is lower on reasoning text
 (acc.len 1.9–2.2 vs 2.55–2.73). Even so, Qwen with thinking on is faster than MiMo with thinking off in every cell.
 
@@ -156,7 +160,9 @@ one model, not to rank models. Use it as a side note only.
 
 ## Not measured
 
-- Real pi agent sessions end to end (task success, wall-clock per task, tool-call cap trip rate).
+- Real pi agent sessions end to end (task success, tool-call cap trip rate). Single-problem time to solve was measured
+  2026-10-23: MIMO.md "Sampling temperature", COMPARISON.md.
 - MiMo multimodal input on this cluster.
-- Second runs of the MiMo quality suite (no noise floor for MiMo itself), and a second Qwen prefill run at 2K.
+- A thinking-off MiMo rerun (the 2026-10-23 thinking-on rerun at the same settings and seeds gave about ±3 points on
+  HumanEval+, MIMO.md), and a second Qwen prefill run at 2K.
 - Concurrency above 6 (both deployments cap at max-num-seqs 8).

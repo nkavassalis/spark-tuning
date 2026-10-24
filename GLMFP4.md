@@ -24,9 +24,9 @@ compressed scale format as Qwen FP4-Local, so the same community **b12x** vLLM b
 | Recipe bench aggregate C1 / C4 / C6 | 58.3 / 174.5 / 228.2 | 56.5 / 137.9 / 186.9 | 26.6 / 70.6 / 86.7 | **35.3 / 75.3 / 93.7** | Qwen ×1.6–2.4 |
 | Cold prefill 32K / 64K (tok/s) | 3,031 / 2,989 | 2,728 / 2,672 | 1,950 / 1,987 | **2,170 / 2,164** | Qwen +25–40% |
 | Warm prefix hit (recomputed tokens) | ~2.5K | 0 | — | **0** | |
-| KV pool (fp8) | 4.25M | 5.49M | 2.11M | **2.02M** (500K max context) | |
-| Memory free per node after boot | ~4–7 GiB | 14–18 GiB | 11–13 GiB | **7–8 GiB** | tight but stable |
-| **Time to solve**, HumanEval+ subset (41), one at a time | — | 40.4 s/problem at `xhigh` (37/41); **14.7 at `medium`** (36/41), **13.4 at `low`** (39/41), 4.8 thinking off (38/41) | — | 18.5 s/problem at high (36/41), 99 s at max; **4.2 s at `low`** (35/41, 0.6; 2026-10-24) | **Qwen at `low`/`medium` 1.3–1.4× faster than GLM high**; GLM high beat only Qwen `xhigh` (2.2×) |
+| KV pool (fp8) | 4.25M | 5.49M benchmark mode; 4.54M live (PLE table in GPU memory, since 2026-10-21) | 2.11M | **2.02M** (500K max context) | |
+| Memory free per node after boot | ~4–7 GiB | 14–18 GiB benchmark mode; 8.5–12.2 GiB live | 11–13 GiB | **7–8 GiB** | tight but stable |
+| **Time to solve**, HumanEval+ subset (41), one at a time | — | 40.4 s/problem at `xhigh` (37/41); **14.7 at `medium`** (36/41), **13.4 at `low`** (39/41), 4.8 thinking off (38/41) | — | 18.5 s/problem at high (36/41), 99 s at max; **4.2 s at `low`** (35/41, 0.6; 2026-10-24) | **Qwen at `low`/`medium` 1.3–1.4× faster than GLM high**; GLM high beat only Qwen `xhigh` (2.2×); GLM `low` 4.2 s vs Qwen thinking off 4.8 s (about even) |
 | **Time to solve**, LiveCodeBench subset (10), one at a time | — | 292 / 302 / 291 s/problem at `xhigh` / `medium` / `low` (1/10 each); 173 s thinking off (3/10, greedy) | — | 323 s/problem at high (2/10), 438 s at max (1/10) | mostly time to the 16K cap; n=10 can't separate solve counts |
 
 **Bottom line:** GLM FP4-Local is the strongest model we've run here on hard competitive code. LiveCodeBench 55% is the only
@@ -56,10 +56,10 @@ Based on the measurements above. Real agent sessions (multi-turn tool use, task 
 | Everyday coding-agent turns: small functions, edits, fixes | **Qwen at `medium` or `low`** | equal pass rates; Qwen 14.7 / 13.4 s per problem vs GLM high 18.5 s (and GLM max 99 s). The earlier "GLM 2.2× faster" was against Qwen `xhigh` (40.4 s) |
 | Thinking off: fast completions, boilerplate, mechanical edits | **Qwen** (but close) | ties on HumanEval+/MBPP+/GSM8K. Decode is 63 vs 41 tok/s, yet GLM `low` writes shorter answers (166 vs 304 tokens), so measured time to solve is about even: GLM `low` 4.2 s per problem (35/41, 0.6) vs Qwen 4.8 s (38/41, greedy). Qwen keeps it as the live model (no switch) and on the solve count; n=41 |
 | Several agents at once | **Qwen** | aggregate 1.5–2× higher at C2–C6 (C6 187 vs 94 tok/s) |
-| Big repos, many long sessions in parallel, giant cold prompts | **Qwen** | KV pool 5.49M vs 2.03M tokens; cold prefill 2,700 vs 2,170 tok/s (a 180K-token cold miss: ~67 s vs ~83 s, estimated from those rates) |
+| Big repos, many long sessions in parallel, giant cold prompts | **Qwen** | KV pool 4.54M live (5.49M benchmark mode) vs 2.03M tokens; cold prefill 2,700 vs 2,170 tok/s (a 180K-token cold miss: ~67 s vs ~83 s, estimated from those rates) |
 | Very long single context (128K–500K) | either; GLM serves up to 500K | long-context tests 99.3% vs 97.2% at 64K/128K (p=0.38); Qwen's window is 262K; GLM beyond 128K is untested |
 | Images / video in the prompt | **not GLM as deployed**; Qwen untested | GLM runs `--language-model-only` here (memory); image input to Qwen FP4-Local was never tested on this cluster |
-| Long unattended uptime, stability | **Qwen** | 14–18 GiB free per node vs 7–8 GiB; days of live traffic behind it; GLM ran only for benchmarks |
+| Long unattended uptime, stability | **Qwen** | 8.5–12.2 GiB free per node live (14–18 benchmark mode) vs 7–8 GiB; days of live traffic behind it; GLM ran only for benchmarks |
 
 Short version: **Qwen FP4-Local stays the default** for speed, concurrency, KV room and headroom. **GLM FP4-Local is the one to
 switch to for a run of hard problems** (LiveCodeBench 55.0 vs Qwen 43.8–47.5 at any effort), and it is only fast when told
@@ -208,7 +208,7 @@ per-problem pass/fail (`quality_eval.py compare-pass`); two runs of the same Qwe
 
 Reading it:
 - **Code and math without thinking: a tie with everything.** No difference anywhere has p < 0.2.
-- **LiveCodeBench is the one real gain: 55.0%**, the best score on this cluster, **significantly ahead of Qwen config C** (12 vs 1
+- **LiveCodeBench is the one real gain: 55.0%** (57.5% at temperature 0.6 on 2026-10-24, a tie with this), the best score on this cluster, **significantly ahead of Qwen config C** (12 vs 1
   problems only one of them solved) and ahead of the live Qwen FP4-Local at p=0.065 (borderline). Like every model here it ran into
   the 16K cap: **31/80 capped** (all without code, so fails); Qwen C 45, FP4-Local 40, E192 33. Mean 7,918 completion tokens (E192
   8,381, FP4-Local 10,443).
@@ -290,7 +290,7 @@ b12x kernels), but we didn't confirm it: two identical explicit-high requests we
 ## Sampling temperature: 0.6 vs the checkpoint's 1.0 (2026-10-24)
 
 GLM was reinstalled overnight to answer the question the Qwen and MiMo temperature studies raised: does temperature 0.6 change it,
-compared with the checkpoint's 1.0 that the server applies when a request sends nothing (pi without `samplingParams`)? Every
+compared with the checkpoint's 1.0 that the server applies when a request sends nothing? Every
 thinking result above was already at 1.0; thinking off (effort `low`) had only been run greedy. Same server as above (K=3, LM-only,
 `DEFAULT_EFFORT=high`), same harness, data, sandbox and per-problem seeds, top_p 0.95, no top_k, API key on, nothing else on the server.
 The 1.0 thinking run was repeated the same night, as a noise floor against 2026-10-17. One run each, paired McNemar.
@@ -364,8 +364,8 @@ node), caches in `~/glmfp4-cache` (root-owned files from the container; delete w
 
 ## Caveats / not measured
 
-- One run per quality test; the time-to-solve subsets are small (41 and 10 problems), single runs.
-- Thinking tests at effort `high`, the time-to-solve also at `max`; `max` was not run through the full LiveCodeBench, where its long
+- One run per quality test (except `high` at 1.0, run twice: 55.0 and 53.8 on LiveCodeBench); the time-to-solve subsets are small (41 and 10 problems), single runs.
+- Thinking tests at effort `high`, the time-to-solve also at `max` and `low` (0.6 and 1.0); `max` was not run through the full LiveCodeBench, where its long
   thinking would hit the 16K cap even more often (it averaged 15,043 tokens on the 10-problem subset).
 - Text only (`--language-model-only`): vision and video input not served. Which part of the vision path caused the post-load memory
   dip isn't isolated.

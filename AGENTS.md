@@ -5,7 +5,7 @@ Project mode: REAL
 ## Purpose
 Public notes, scripts and measured results from tuning LLM serving on a 2-node DGX Spark (GB10) cluster
 (vLLM TP=2 over the CX7 200G link). The cluster serves one model at a time:
-- Qwen3.8-Flash-Next (NVFP4 + FP8-dense, MTP K=2): `QWEN.md`, `FP8DENSE.md`. Tuned; the production model.
+- Qwen3.8-Flash-Next (NVFP4 + FP8-dense, MTP K=2): `QWEN.md`, `FP8DENSE.md`. Tuned; the production model (config C) until 2026-10-16, now installed but not serving.
 - MiMo-V2.6-Flash-RL (DFlash 7): `MIMO.md`. Set up, benchmarked, then **removed from both nodes** on 2026-10-07. Reinstalled
   for one day on 2026-10-23 for a temperature study (thinking off: 0.6 beats the server's 1.0 on MBPP+, p=0.011, and 1.0 is 1.3–1.7×
   slower to solve; thinking on: tie; MIMO.md "Sampling temperature"), then removed again.
@@ -60,13 +60,13 @@ tell the user. Fixing it means scrubbing plus a history rewrite, and rotating an
 | `COMPARISON.md` | 2026-10-18 roll-up: every model × reasoning setting (Qwen off/low/medium/xhigh, MiMo off/on, GLM low/high/max): quality, time to solve, speed, usage advice |
 | `SGLANG.md` | 2026-10-18 research: no SGLang build reads FP4-Local (CSF expert scales: lossless offline fix; NVFP4 PLE table: needs an SGLang patch); published SGLang 2× Spark numbers not faster for single-user; nothing run |
 | `pi/models.json.example` | IP-free copy of the pi provider config for the live Qwen: temperature 0.6 via `samplingParams`, image input on |
-| `cluster.env.example` | template for the untracked `cluster.env` (HEAD, WORKER, API, REPO, MIMO_RECIPE) |
+| `cluster.env.example` | template for the untracked `cluster.env` (HEAD, WORKER, API, REPO, MIMO_RECIPE, optional API_KEY) |
 | `scripts/` | Qwen-era benchmark tools; `bench_decode.py` works for any model (`--model`, `--url`); `prefix_probe.py` measures prefix-cache behaviour; `watch_stalls.sh` is the 2 s stall sampler |
 | `quality/` | quality-eval harness (runs on a node with docker; `API` env required). `NOTHINK_TEMP`/`NOTHINK_TOP_P` sample thinking-off runs (unset = greedy); `run_tts.sh` + `tts_score.py` time to solve at concurrency 1 |
 | `configs/` | diffs applied to the Qwen deployment repo (`env.diff`, `start.sh.patch`, FP8 overlays) |
 | `mimo/lib.sh` | shared vars: pinned recipe commit, image, iface/HCA defaults, ports, `on`, `drop_caches` |
 | `mimo/setup_nodes.sh` | recipe checkout + render `mimo.env` + weights (head download, rsync to worker) + patches |
-| `mimo/up.sh` / `mimo/down.sh [--qwen]` | switch cluster to MiMo / stop MiMo (optionally relaunch Qwen) |
+| `mimo/up.sh` / `mimo/down.sh [--fp4local\|--qwen]` | switch cluster to MiMo / stop MiMo (optionally relaunch FP4-Local or config C) |
 | `mimo/mimo.env.example` | template rendered onto nodes as `<recipe>/launch/mimo.env` (placeholders filled on the nodes) |
 | `mimo/toolcap/` | tool-call-cap proxy (upstream copy + `upstream.diff`), its node tests, `routes.json` |
 | `mimo/test_mimo.py` | functional checks against the live MiMo deployment |
@@ -83,11 +83,11 @@ tell the user. Fixing it means scrubbing plus a history rewrite, and rotating an
 ```bash
 cp cluster.env.example cluster.env   # fill in (never commit)
 mimo/setup_nodes.sh                  # idempotent; ~178 GB weights (MiMo is currently NOT installed on the nodes)
-mimo/up.sh                           # stops Qwen, starts MiMo (~13.5 min) + proxy
-mimo/down.sh --qwen                  # back to Qwen
+mimo/up.sh                           # stops Qwen (FP4-Local or config C), starts MiMo (~13.5 min) + proxy
+mimo/down.sh --fp4local              # back to the live Qwen FP4-Local (--qwen: config C)
 ```
-GLM: `GLM_VARIANT=E192 glm/up.sh` (or E224), `glm/down.sh --qwen`; API `http://<head>:8000/v1`, model `glm53-flash-e192`.
-FP4-Local: `fp4local/up.sh` (needs `fp4local/setup_nodes.sh` once; checkpoint is in the HF cache, whose 2.x blob store lives at `~/.cache/huggingface/hub/blobs/`).
+GLM (not installed; `GLM_VARIANT=E192 glm/setup_nodes.sh` first): `GLM_VARIANT=E192 glm/up.sh` (or E224), `glm/down.sh --fp4local` (or `--qwen`); API `http://<head>:8000/v1`, model `glm53-flash-e192`.
+FP4-Local: `LIVE=1 SPEC_TOKENS=2 fp4local/up.sh` is the live model; plain `fp4local/up.sh` is benchmark mode (K=4, disk PLE, GMU 0.8, API key) (needs `fp4local/setup_nodes.sh` once; checkpoint is in the HF cache, whose 2.x blob store lives at `~/.cache/huggingface/hub/blobs/`).
 **Benchmark lock-out:** put `API_KEY=` in `cluster.env`; `fp4local/up.sh` serves with `--api-key`, and `bench_decode.py`, `quality/*` and the runners send it. In the b12x build `/metrics` is behind the key too.
 GLM always thinks: send `chat_template_kwargs.reasoning_effort` = `low` (no reasoning on easy prompts, but up to 50K+ characters on hard ones) or `high`; **omitted = `max`**.
 Endpoints (MiMo): agents `http://<head>:8000/mimo/v1` (proxy); raw vLLM `http://<head>:8888/v1`; model `mimo-v2.6-flash`.
@@ -99,7 +99,7 @@ proxy files and log `~/mimo-toolcap/` (container `mimo-toolcap`), vLLM container
 scripts/stage_pi_compaction.py --check                 # confirm the pi client staging (PI.md)
 node --test mimo/toolcap/*.test.cjs                    # 13 proxy unit tests, offline
 set -a; . ./cluster.env; set +a; mimo/test_mimo.py     # live: chat, tool-call parse, storm guard
-bash -n mimo/*.sh glm/*.sh scripts/*.sh quality/*.sh    # syntax
+bash -n mimo/*.sh glm/*.sh glmfp4/*.sh fp4local/*.sh scripts/*.sh quality/*.sh    # syntax
 python3 -m py_compile scripts/*.py quality/*.py mimo/*.py glm/*.py
 ```
 Benchmarks (`scripts/bench_decode.py`, recipe `bench/mimobench.py` run on the head, `scripts/prefix_probe.py`) are
@@ -156,14 +156,14 @@ miss costs ~50 s of exclusive prefill. Client compaction: 2026-10-15 staged `res
   **Residual risk:** a genuinely *cold* prompt is now ~36% slower per token (2,668 vs 3,640 tok/s), so a 180K cold miss
   would monopolise the engine ~68 s instead of 50 s. Client-side mitigation: pi compaction (65536 on 2026-10-15,
   relaxed to 40000 on 2026-10-21 for mostly single-user use; restore 65536 if multi-agent stalls return; see `PI.md`). The 2026-10-15 A/B plan (batched-tokens 4096 + `--long-prefill-token-threshold` + GMU 0.80) is
-  **retired**: FP4-Local already runs 4096/0.8 and `FP4LOCAL.md` shows 8192 gains nothing. `--long-prefill-token-threshold`
+  **retired**: FP4-Local already runs 4096 batched tokens at GMU 0.84 live / 0.80 benchmark mode, and `FP4LOCAL.md` shows 8192 gains nothing. `--long-prefill-token-threshold`
   is untried on both models and is the only remaining server lever if giant-cold-prompt stalls show up.
   Async scheduling stays ON - demoted to untested hypothesis, no longer needed.
 - **Warm hits are free on FP4-Local because of prefix-match granularity, not block size** (`FP4LOCAL.md`); config C's
   ~2.5-3K tail is exactly `(prompt mod 1648) + 1648`, i.e. no fine hits at all. **Untested**: config C would probably
   lose the tail with `--prefix-match-unit` set (a small `--block-size` alone is the weaker bet, since the old build's
-  `enable_partial_hash_hits` predicate only looks at the Mamba group). Never tried - it needs a restart of the server
-  this session runs on.
+  `enable_partial_hash_hits` predicate only looks at the Mamba group). Never tried - it needs config C relaunched
+  (not serving since 2026-10-16).
 - **The pi status-line token speed is not a measurement.** `pi-token-speed` counts 1 token per streamed SSE chunk
   (default `direct` strategy) while MTP delivers ~2-2.6 tokens per chunk, ignores tool-call args except `edit`/`write`,
   and times from stream start (prefill included) - so it reads ~half the true rate, ~24-25 while a benchmark says 45+.
@@ -174,7 +174,7 @@ miss costs ~50 s of exclusive prefill. Client compaction: 2026-10-15 staged `res
   decomposition table in QWEN.md "Speed re-check" before re-investigating this.
 - The proxy caps **streamed** responses only. Non-streaming requests can still storm.
 - MiMo is 1.3–2.7× slower than Qwen config C for single-user code (both thinking off); the gap grows with context (MiMo step rate falls 10.6→7.1/s from 1K to 128K, Qwen flat ~25/s).
-- MiMo quality: one run per test, so there's no noise floor for MiMo. Qwen's quality numbers are reused from 09-27/28.
+- MiMo quality: one run per test, except the thinking-on suite rerun 2026-10-23 at the same settings (HumanEval+ 89.0 vs 92.1, LCB 46.2 vs 45.0: about ±3 points, MIMO.md). Qwen's quality numbers are reused from 09-27/28.
 - `quality_eval.py nll` per-token NLL is only comparable within one tokenizer; use `bpb` across models.
 - GLM: `scripts/bench_decode.py --chat-kwargs '{"reasoning_effort":"low"}'`; quality harness `NOTHINK_KWARGS` / `THINK_KWARGS` /
   `NOTHINK_MAX_TOKENS` (defaults reproduce the Qwen/MiMo requests). GLM decode runs show an unexplained slow mode
@@ -195,8 +195,8 @@ miss costs ~50 s of exclusive prefill. Client compaction: 2026-10-15 staged `res
 - Stall episodes WERE captured live with `scripts/watch_stalls.sh` on 2026-10-15 (`results/stall-watch/`), but the two
   columns that would prove the mechanism (`prefill_recomputed`, `prefix_cache_hit_alloc`) read 0 at the time: vLLM
   serves big counters in scientific notation (`4.68835e+06`) and the row parser truncated them. Fixed and re-verified
-  (3 windows of 2.4-3.6K recomputed tokens at 92-95% hit rate seen on a live 32K prefill). The stall cause is still
-  unproven; the next capture should settle cached-admission vs recompute.
+  (3 windows of 2.4-3.6K recomputed tokens at 92-95% hit rate seen on a live 32K prefill). The 14:11 capture that
+  followed settled it as recompute (182,012 tokens re-prefilled; see Known issues and QWEN.md).
 - C6 re-check (218.4 tok/s, 2026-10-15) is a single run; spread on this bench was previously measured at 6-15%.
 - Prefix-cache results (cold/warm/competing/idle) are one run each, no repeat spread.
 

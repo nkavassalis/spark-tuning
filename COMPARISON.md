@@ -31,7 +31,7 @@ Before 2026-10-18 no Qwen run sent `reasoning_effort`, so every older Qwen "thin
 
 ## Quality
 
-Thinking off: greedy, `max_tokens` 1536 (GSM8K 1024; GLM 4096). Thinking on: seeded, 16K budget; sampling Qwen 0.6 / 0.95 / 20,
+Thinking off: greedy unless the row states a temperature, `max_tokens` 1536 (GSM8K 1024; GLM 4096). Thinking on: seeded, 16K budget; sampling Qwen 0.6 / 0.95 / 20,
 MiMo and GLM 1.0 / 0.95. HumanEval+ and MBPP+ are "plus" (base + extra tests). LiveCodeBench: 80 stdin problems; about half of
 every model's runs hit the 16K cap, so it measures "solves it within 16K tokens".
 
@@ -113,7 +113,7 @@ and about Qwen `medium`'s with thinking on, at a lower pass rate.
 | Model (MTP) | Decode, thinking off / on, tok/s | Recipe bench C1 / C4 / C6 | Cold prefill 32K / 64K, tok/s | KV pool | Free per node |
 |---|---|---|---|---|---|
 | Qwen C (K=2) | 67.0 / 52.1 | 58.3 / 174.5 / 228.2 | 3,031 / 2,989 | 4.25–4.48M | ~4–7 GiB |
-| **Qwen FP4-Local (K=2)** | 63.3 / 49.5 | 56.5 / 137.9 / 186.9 | 2,728 / 2,672 | **5.49M** | **14–18 GiB** |
+| **Qwen FP4-Local (K=2)** | 63.3 / 49.5 | 56.5 / 137.9 / 186.9 | 2,728 / 2,672 | **5.49M** benchmark mode; 4.54M live (PLE in GPU memory, 2026-10-21) | **14–18 GiB**; 8.5–12.2 live |
 | MiMo (DFlash 7) | 35.8 (our mean of the 6 cells) / — | 42.8 / 101.0 / 139.6 | 1,486 / 1,271 | 2.05M | ~6–9 GiB |
 | GLM E192 (K=2) | 26.8 / 27.7 (our means of the 6 cells) | 21.0 / 73.1 / 88.0 | 1,954 / 2,009 | 2.11M | 19 GiB |
 | GLM E224 (K=2) | 30.0 / 27.9 | 26.6 / 70.6 / 86.7 | 1,950 / 1,987 | 2.11M | 11–13 GiB |

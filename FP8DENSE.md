@@ -1,5 +1,8 @@
 # FP8-dense hybrid checkpoint: measured speed and quality
 
+> **Status 2026-10-16:** config C is installed but no longer serving; nvidia FP4-Local replaced it ([FP4LOCAL.md](FP4LOCAL.md)).
+> `fp4local/down.sh --qwen` brings it back.
+
 **Question:** the deployment repo's `FP8_DENSE=true` lane converts every BF16 dense projection
 (GDN / attention / HyperConnection / shared expert / lm_head, 591 linears) to FP8 E4M3 with
 per-output-channel weight scales and dynamic per-token activation scales. The NVFP4 routed experts
@@ -34,7 +37,7 @@ checkpoint's layout. It also can't use the reduced draft vocabulary, because bot
 
 Everything else is identical across A/B/C: fp8 KV cache, 262K context, MTP K=2, GMU 0.835,
 `--performance-mode interactivity`, NCCL settings, control plane on the CX7 link
-(see [README](README.md)).
+(see [QWEN.md](QWEN.md#tldr)).
 
 ## Speed
 

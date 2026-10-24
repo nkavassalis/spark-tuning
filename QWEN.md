@@ -1,11 +1,12 @@
 # Qwen3.8-Flash-Next on the dual DGX Spark cluster
 
-> **Status 2026-10-07:** serving config C (GMU 0.835, MAX_NUM_SEQS 8) again, after a day on MiMo-V2.6-Flash
-> ([MIMO.md](MIMO.md)). Head-to-head: [QWEN_VS_MIMO.md](QWEN_VS_MIMO.md); Qwen won on speed and on quality.
-> The staged 2026-10-04 change below was dropped, never used. Switch models with `mimo/up.sh` / `mimo/down.sh --qwen`.
-> **2026-10-16:** nvidia's QAD quant `Qwen3.8-Flash-Next-FP4-Local` was measured against config C ([FP4LOCAL.md](FP4LOCAL.md)): same quality,
-> a bit slower, but a bigger KV pool and zero-recompute warm cache hits. **It replaced config C in production**; config C is still
-> installed (`fp4local/down.sh --qwen`).
+> **Status 2026-10-16:** nvidia's QAD quant `Qwen3.8-Flash-Next-FP4-Local` was measured against config C ([FP4LOCAL.md](FP4LOCAL.md)): same quality,
+> a bit slower, but a bigger KV pool and zero-recompute warm cache hits. **It replaced config C in production**: live at K=2
+> (`LIVE=1 SPEC_TOKENS=2 fp4local/up.sh`, served as `qwen3.8-flash-next`; PLE table in GPU memory since 2026-10-21, GMU 0.84,
+> KV ~4.54M). Config C, which this page tunes, is still installed: `fp4local/down.sh --qwen`. MiMo is not installed
+> (`mimo/setup_nodes.sh && mimo/up.sh` to reinstall).
+> History, 2026-10-07: config C (GMU 0.835, MAX_NUM_SEQS 8) serving again after a day on MiMo-V2.6-Flash ([MIMO.md](MIMO.md)).
+> Head-to-head: [QWEN_VS_MIMO.md](QWEN_VS_MIMO.md); Qwen won on speed and on quality. The staged 2026-10-04 change below was dropped, never used.
 
 Tuning notes, scripts and results for a dual **DGX Spark** (GB10) cluster serving
 `nvidia/Qwen3.8-Flash-Next-NVFP4` with vLLM (TP=2 + EP, MTP speculative decoding), deployed with
@@ -39,7 +40,7 @@ Single-stream code decode, before → after (500 tokens, 1 run each — see cave
 |---|---|---|---|---|
 | before (K=3, LAN control plane) | 45.1 | 42.5 | 40.5 | 37.6 |
 | after, launch 1 | 46.1 | 43.4 | 44.6 | 48.0 |
-| after, launch 2 (current) | 45.3 | 47.1 | 49.5 | 45.6 |
+| after, launch 2 (2026-09-27, config A) | 45.3 | 47.1 | 49.5 | 45.6 |
 
 **Read this honestly:** at short context the gain is within noise (~0–3%). At 64K it is consistently
 +10–25%. Copy-from-context tasks got ~10% *slower* (they benefit from long drafts). The changes were
@@ -100,7 +101,7 @@ Per-position acceptance on your **real traffic** with K=3 (server log, 10 s wind
 and during the synthetic benchmark: `0.54/0.29/0.12`, `0.57/0.30/0.22`, `0.68/0.45/0.30`.
 The repo's published numbers (89% / 74.5% / 60%) are for greedy prose and do not describe this workload.
 
-With K=2 (current, `results/current-K2-2026-09-27.json`) acceptance is `p0 ≈ 0.51–0.79`,
+With K=2 (2026-09-27, config A, `results/current-K2-2026-09-27.json`) acceptance is `p0 ≈ 0.51–0.79`,
 `p1 ≈ 0.25–0.62`, mean acceptance length 1.76–2.41 tokens/step. Temperature matters: `code_ts` at
 T=0.6 drops to 0.51/0.25 — rejection sampling accepts less at higher temperature.
 
@@ -125,6 +126,8 @@ if it falls below ~0.25, try K=1.
 All run from any machine that can reach the head. Python 3 stdlib only. Point them at your cluster with
 the `API` env var (or `--url`) for the Python scripts and `HEAD`/`WORKER`/`API`/`REPO` for the shell scripts;
 the shell scripts also source an untracked `cluster.env` (copy `cluster.env.example`).
+`check_cluster.sh` and `mtp_ab.sh` (and the `.env` / `start.sh` paths below) target config C (`vllm-fn`). Since 2026-10-16 the
+live model is FP4-Local (`vllm_fp4local`): run `fp4local/down.sh --qwen` first, and `LIVE=1 SPEC_TOKENS=2 fp4local/up.sh` to go back.
 
 | Script | Restarts server? | Purpose |
 |---|---|---|
@@ -150,6 +153,9 @@ Benchmarks are only valid when nothing else is using the server (the metrics are
 
 ## Configuration
 
+This section is config C (not serving since 2026-10-16). `./stop.sh` only stops `vllm-fn`, so from the live model use
+`fp4local/down.sh --qwen` instead.
+
 Deployment repo: a checkout of `Qwen3.8-Flash-Next-Dual-DGX-Sparks` on the head. Launch with `./stop.sh && ./start.sh --launch`
 on the head (cold start ≈ 11 min; the first request after launch is slow while FlashInfer autotunes).
 
@@ -161,13 +167,17 @@ on the head (cold start ≈ 11 min; the first request after launch is slow while
   If it's ever tried: check the boot log (`Free memory on device`) and `free --giga` on **both** nodes, and revert
   GMU to 0.835 if OS-available dips below ~4 GiB on the head (unified memory; see torch.compile incident).
 - `configs/start.sh.patch` — the `EXTRA_DOCKER_ARGS` fix
-- `configs/running-vllm-args.txt` — the exact `vllm serve` command line now running
+- `configs/running-vllm-args.txt` — the exact `vllm serve` command line of config C (live until 2026-10-16; the FP4-Local command is built by `fp4local/up.sh`)
 
 To revert everything: on the head, `cp .env.bak-20260926-2124 .env && git checkout start.sh && ./stop.sh && ./start.sh --launch`.
 
 ---
 
 ## Multi-agent stalls (2026-10-15): measurement, not a fix yet
+
+> **2026-10-16:** neither candidate fix below was A/B'd: config C was replaced by FP4-Local, whose warm hits recompute 0
+> ([PI.md](PI.md)). The cause was established later the same day (the 14:11 capture below): a full re-prefill when a prompt
+> diverges from its cached prefix. The async-scheduling and memory suspects were demoted. Stalls on FP4-Local: not yet observed.
 
 Symptom reported: with 3-4 pi agents on it, the server shows high load but no agent gets prefilled or generated
 tokens for a while. What the server itself recorded, from `docker logs vllm-fn` and `/metrics`:
@@ -245,7 +255,7 @@ Same-tool comparison (recipe bench, temperature 0, thinking off, 9 categories, `
 
 So the ~20 tok/s is the *session* condition, not the machine. Decomposition, all T=0.6, `scripts/bench_decode.py`,
 `results/qwen-c-rcheck-thinkon-2026-10-15.json` and the concurrency runs in `results/concurrency-2026-10-15/`
-(one JSON per stream plus a SUMMARY per condition; thinking ON = what pi sends):
+(one JSON per stream plus a SUMMARY per condition; thinking ON at the template default `xhigh`, what pi sent on 2026-10-15; pi now sends `medium` at T=0.6):
 
 | Condition | Per-stream tok/s | Engine steps/s per stream |
 |---|---|---|
@@ -331,11 +341,11 @@ modes change CUDA graph granularity and kernel selection only. There is no prefi
 
 | Change | Where | Effect | Cost |
 |---|---|---|---|
-| Keep pi sessions smaller; compact before 100K | client | A full miss at 3.6K tok/s is 25 s at 90K, 50 s at 180K; nothing server-side can change that | losing old context |
-| Don't edit injected instruction files while agents are running | workflow | Removes the self-inflicted misses | batch doc edits instead |
+| Keep pi sessions smaller; compact before 100K (applied via `scripts/stage_pi_compaction.py`; current values in PI.md: 40,000 / 40,000 since 2026-10-21) | client | A full miss at 3.6K tok/s is 25 s at 90K, 50 s at 180K; nothing server-side can change that | losing old context |
+| Batch instruction-file edits | workflow | each edit costs one full re-crunch at the next session start or resume (not mid-session, see above) | none |
 | `--max-num-batched-tokens 8192` → 4096 | restart | A 180K prefill becomes ~44 chunks instead of ~22, so decode of the other sessions gets a step every ~1 s instead of ~2 s | prefill throughput somewhat lower; the stalled request's own TTFT slightly worse |
 | `--long-prefill-token-threshold 16384` | restart | Caps how much of a *long* prompt one iteration chews, the purpose-built knob ("a request is considered long if the prompt is longer than this") | same direction as above |
-| `GPU_MEMORY_UTILIZATION` 0.835 → 0.80 | restart | ~+7 GiB OS headroom; `avail` is at 4.1 GiB, the guardrail floor | smaller KV pool (19% peak usage → no practical loss) |
+| `GPU_MEMORY_UTILIZATION` 0.835 → 0.80 | restart | ~+7 GiB OS headroom; `avail` was 4.1 GiB on config C (10-15), the guardrail floor | smaller KV pool (19% peak usage → no practical loss) |
 | `--no-async-scheduling` | restart | **Demoted**: the captured episodes are fully explained by long prefill, so this is a hypothesis again, not a suspect | unknown throughput cost |
 
 
@@ -363,22 +373,22 @@ So, on this deployment:
   `vllm:engine_sleep_state` reads `awake` (not `discard_all`), and nothing on the nodes calls `/sleep` — no timer or
   cron unit touches the server.
 - **A warm prompt still re-crunches a fixed tail.** The same prompt recomputed exactly 2,535 tokens (10.6%) on every
-  repetition, including after the idle gap. Expect ~10% of a prompt to be recomputed even with a perfect cache hit;
-  on a 130K agent context that is ~13K tokens, ~4 s of prefill, every turn.
+  repetition, including after the idle gap. That tail turned out to be roughly constant, ~2.5-3K tokens (~0.8 s) at any size (config C's 1,648-token block
+  granularity, see above; 2,623 of 96,559 at 96K), so the 10.6% is specific to this 24K probe. FP4-Local recomputes 0.
 - **Eviction is pressure-driven (LRU), and there was no pressure**: KV usage during all of this was 5-19% of a
   4.48M-token pool. Idle prefixes are not evicted while the pool is this empty.
 - **Therefore a full re-crunch of a prompt the server has already seen means the prefix diverged, not that KV was
-  flushed.** The prefix cache matches from token 0 (`prefix_caching_hash_algo=sha256`, block_size 8), so anything
+  flushed.** The prefix cache matches from token 0 (`prefix_caching_hash_algo=sha256`; hits land on 1,648-token physical blocks, see above and FP4LOCAL.md), so anything
   that changes the *front* of the request invalidates everything after it: the system prompt, the tool list, and (for
-  pi) the project instructions file. Editing `AGENTS.md` mid-day invalidates every session's prompt, which is exactly
-  the kind of day this was.
+  pi) the project instructions file *as read at session start or resume* (corrected above: a mid-session `AGENTS.md` edit does not
+  affect running sessions).
 - **What this means for the stall symptom.** A pi turn re-sends the whole history (p50 ~54K, max ~172K tokens here).
   A full miss at 3.5K tok/s is 15-50 s during which the engine logs prompt throughput while decode of everyone else
   crawls. Captured episodes (10:08, 10:18-10:19 in `results/stall-watch/`) show `gen_delta ~0` with KV creeping and
   RoCE at 1.3-1.6 GB/s, and the engine logging `prompt throughput 0.0` at the same time — consistent with *admission
   of huge mostly-cached prompts* rather than recompute, but the sampler columns that would prove it
-  (`prefix_cache_hit_alloc`) were broken by a parsing bug that day, so this is the leading explanation, not a
-  confirmed one. The same windows show PSI memory 0.00 and no swap-out, so memory pressure was **not** the cause.
+  (`prefix_cache_hit_alloc`) were broken by a parsing bug that day, so this was the leading explanation at the time. **Superseded by the 14:11 capture above**: the frozen windows are
+  full re-prefills of a diverged ~180K prompt (recompute), not admission of cached prompts. The same windows show PSI memory 0.00 and no swap-out, so memory pressure was **not** the cause.
 
 ### Why is there 4.3 GiB in swap on a box that reports free RAM? (2026-10-15)
 
@@ -395,7 +405,7 @@ host `Shmem` is 2.4 GiB) are what got swapped, not weights, KV metadata or Pytho
 captured stall windows show `psi=0.00`, `swapout=0`, `majfault_delta=0`, so reclaim was not on the critical path at
 the moment of a freeze. Memory is therefore a **risk** (4 GiB available is at the guardrail line set after the
 torch.compile hang) rather than a demonstrated cause. Without root we cannot lower `vm.swappiness`; the lever we do
-have is `GPU_MEMORY_UTILIZATION`, which is also the lever for the stall fix — see the candidates below.
+have is `GPU_MEMORY_UTILIZATION`, which is also the lever for the stall fix — see "Knobs for this" above.
 
 ## Things tried that failed / were rejected
 
@@ -460,7 +470,7 @@ see [FP8DENSE.md](FP8DENSE.md).)
 
 1. ~~Isolate K=2 vs K=3~~: done on the FP8-dense config. K=2 is 2.7% faster (FP8DENSE.md).
 2. ~~`index_share_for_mtp_iteration`~~ — tested, no gain, reverted (see above).
-3. ~~`FP8_DENSE`~~ (**production since 2026-09-27**): evaluated, +35% decode, no detectable task-accuracy change. See [FP8DENSE.md](FP8DENSE.md).
+3. ~~`FP8_DENSE`~~ (**production 2026-09-27 → 2026-10-16**, then replaced by FP4-Local, see FP4LOCAL.md): evaluated, +35% decode, no detectable task-accuracy change. See [FP8DENSE.md](FP8DENSE.md).
 4. ~~FP8-dense + reduced draft vocabulary~~: built and measured, no step-rate gain because the draft ids sit
    almost entirely on rank 0 (see FP8DENSE.md "Follow-up").
 5. ~~Quality in thinking mode and at long context~~: done, no detectable change (FP8DENSE.md).
@@ -487,5 +497,7 @@ see [FP8DENSE.md](FP8DENSE.md).)
   Queue, KV pool, preemptions, JIT, disk and RoCE all clean. Suspects: async scheduling on with MTP, and host
   memory pressure (5.2 GiB available, 2.4 GiB of the engine swapped out). `scripts/watch_stalls.sh` added to catch the next one.
 - 2026-10-15 — prefix-cache flush question answered by measurement (`scripts/prefix_probe.py`): no timer, idle does not flush, competing traffic did not evict;
-  a warm prompt still re-crunches a fixed ~10% tail (2,535 of 23,959 tokens). A full re-crunch means the prompt diverged from its cached prefix.
+  a warm prompt still re-crunches a fixed tail (2,535 of 23,959 tokens; ~2.5-3K at any size, later shown). A full re-crunch means the prompt diverged from its cached prefix.
 - 2026-10-15 — captured two stall episodes live; memory reclaim ruled out (PSI 0.00 during every frozen window). Speed re-check: no regression, ~20 tok/s = 4 agents + thinking.
+- 2026-10-16 — nvidia FP4-Local (K=2) replaced config C as the live model ([FP4LOCAL.md](FP4LOCAL.md)); config C stays installed (`fp4local/down.sh --qwen`).
+- 2026-10-21 — FP4-Local live mode holds the PLE table in GPU memory (GMU 0.84, KV ~4.54M).

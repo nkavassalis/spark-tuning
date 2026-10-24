@@ -5,15 +5,15 @@ no memory pressure, no NCCL problem); the load shape that produced the stalls is
 of it is tunable there without touching vLLM. Server-side detail: `QWEN.md` ("The stall, caught end to end",
 "When does KV actually get flushed?", "Speed re-check"). Tooling: `scripts/prefix_probe.py`, `scripts/watch_stalls.sh`.
 
-## What pi puts on the wire (verified against pi 1.2.0 source, this machine)
+## What pi puts on the wire (verified against the pi source on this machine; installed version 0.87.1 as of 2026-10-24)
 
 | Behaviour | Where | Consequence for this cluster |
 |---|---|---|
-| Streams every request; sends `temperature` only if configured | provider layer | Server-side sampling defaults apply; for MiMo this is a storm mitigation, see `MIMO.md` |
+| Streams every request; sends `temperature` only if configured | provider layer | Unconfigured, the server default applies (1.0 / 0.95 / 20 for Qwen). This cluster's pi config sends Qwen 0.6 via `samplingParams` since 2026-10-19 (`pi/models.json.example`); for MiMo the server default is a storm mitigation, see `MIMO.md` |
 | Injects project instructions: `<agent-dir>/AGENTS.md` first, then walks **up from cwd** collecting `AGENTS.override.md`/`AGENTS.md`/`AGENTS.MD`/`CLAUDE.md`/`CLAUDE.MD`, nearest wins | `core/resource-loader.js:165` | Every session carries its own instructions; there is no shared file unless a user-level or ancestor `AGENTS.md` exists. On this box neither exists, so a session rooted in `~/spark-tuning` injects exactly one file |
 | Skills, system-prompt overrides and the tool list are also in the system prompt | `core/agent-session.js:1272` | Changing tools/skills/settings mid-session rewrites the prompt prefix → full prefix-cache miss |
 | Context files are read inside `resourceLoader.reload()`; the only call site is the explicit settings/extension reload | `resource-loader.js:468`, `agent-session.js:2980` | **Mid-session file edits change nothing live.** Verified empirically: a session running since 10-07 still carried the 10-07 `AGENTS.md` after several same-day edits. The re-read happens at session start/resume |
-| Compaction triggers when `contextTokens > contextWindow − reserveTokens` | `core/compaction/compaction.js:173` | With the 262,144-token model and pi's defaults (`reserveTokens` 16,384) sessions ride to ~246K tokens before compacting |
+| Compaction triggers when `contextTokens > contextWindow − reserveTokens` | `core/compaction/compaction.js:173` | With the 262,144-token window, pi's default `reserveTokens` 16,384 would let sessions reach ~246K tokens; this cluster stages 40,000 (compacts above 222,144, since 2026-10-21; see "Tuning the client") |
 
 ## Why that shape hurts here
 
@@ -51,10 +51,11 @@ FP4-Local K=2 (`FP4LOCAL.md`), which changes the balance for everything in this 
 |---|---|---|
 | warm hit, 96K prompt | 2,623 tokens recomputed, 3.92 s | **0 recomputed, 0.35 s** (independently re-measured, `results/fp4local/fp4local-k2-mycheck-prefix-96000-2026-10-16.json`) |
 | cold prefill, 96K prompt | 26.5 s (3,640 tok/s) | 36.2 s (2,668 tok/s) — **~36% slower per token** |
-| recurring cause of the stalls | every hit re-crunched ~2.5-3K tokens; divergence re-crunched all 182K | hits are free; only genuine divergence costs |
+| recurring cause of the stalls | every hit re-crunched ~2.5-3K tokens; divergence re-crunched all 182K | identical repeats are free; a normal pi turn (an append) floors to a 4,096 boundary, ~6K tokens / ~2.3 s (see "The 4,096 floor"); divergence re-crunches everything |
 
 Practical consequences for the client, in order:
-- The dominant stall driver is gone: the recurring re-crunch was the mamba state granularity that FP4-Local doesn't have.
+- config C's recurring ~2.5-3K mamba-granularity re-crunch is gone, but appends still recompute ~6K tokens per turn (the 4,096
+  floor below), so the per-turn cost didn't vanish; what's gone is the stall pattern measured on config C.
 - **Misses got more expensive, not cheaper.** A 180K-token cold prompt now monopolises the engine for ~68 s rather than
   ~50 s. So "don't create a giant cold prompt" matters *more* on the live model: don't resume a huge session across a
   restart, don't change model/thinking/tools on a long session, and keep the compaction staging below.
@@ -102,9 +103,10 @@ first thing to restore.
 Free behaviour changes, in rough order of value:
 - Don't change model, thinking level or tool set on a long session — each is a full miss at that size.
 - Prefer a fresh session over resuming a giant one across a restart; a resume re-reads and rebuilds the prompt anyway.
-- Turn thinking off where reasoning isn't needed: +20% decode (63.9 vs 52.8 tok/s) and better MTP acceptance (2.60 vs 2.05).
+- Turn thinking off where reasoning isn't needed: +28% decode on the live FP4-Local (64.3 vs 50.4 tok/s, 6-cell means, FP4LOCAL.md
+  "PLE n-gram table in GPU memory"; config C: 63.9 vs 52.8) and better MTP acceptance.
 - Batch instruction-file edits and do them at a session boundary, since the next resume pays one re-crunch.
-- Keep this host free of other heavy disk/IO jobs while decoding — the KV reuse that makes a warm turn ~0.8 s is unified memory.
+- Keep this host free of other heavy disk/IO jobs while decoding — the KV reuse that keeps a warm turn cheap (0.35 s for a repeat, ~2.3 s for an append on FP4-Local) lives in unified memory.
 
 ## Why the status-line token speed reads ~half the benchmark
 
@@ -223,7 +225,8 @@ row that finds anything cached says so out loud.
 
 The local pi config (outside this repo) has a `qwen` provider at `<head>:8000/v1`, plus `mimo` at
 `<head>:8000/mimo/v1` (inert — MiMo is not installed) and a GLM entry when provisioned. Only the provider matching the
-model currently served works; `mimo/up.sh` / `glm/up.sh GLM_VARIANT=E224` / `mimo/down.sh --qwen` change which one
+model currently served works; `mimo/setup_nodes.sh && mimo/up.sh` / `GLM_VARIANT=E224 glm/setup_nodes.sh && GLM_VARIANT=E224 glm/up.sh`
+(neither installed now) / `mimo/down.sh --fp4local` (live FP4-Local) or `--qwen` (config C) change which one
 answers. Qwen's template defaults to thinking **on**, which is the slower path above.
 
 The `qwen` entry, IP-free, is [pi/models.json.example](pi/models.json.example) (copy it to `~/.pi/agent/models.json` and

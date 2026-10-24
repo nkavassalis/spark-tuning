@@ -44,7 +44,8 @@ validated it on **one** Spark (TP=1). We ran it TP=2 across both Sparks so every
 **Bottom line:** it is **as smart as config C**, possibly a little smarter: it tied or beat config C on every test, and none of
 the differences is significant. It is **not faster for how this cluster is used.** Single-stream thinking-off decode is even. With
 thinking on it's 5% slower at its best draft length (K=2) and 14% slower with nvidia's K=4. With 3–6 concurrent streams it delivers
-~20% less total throughput at every K. Its real wins are elsewhere: a ~25% bigger KV pool, 10+ GiB more free memory per node,
+~20% less total throughput at every K. Its real wins are elsewhere: a bigger KV pool (+29% in nvidia's disk-PLE config; +7%, 4.54M, in the live PLE-in-memory config
+since 2026-10-21), more free memory per node (14-18 GiB disk / 8.5-12.2 GiB live, vs config C's ~4-7),
 and **zero-recompute warm prefix-cache hits** (config C rebuilds ~2.5K tokens on every hit). **Decision (2026-10-16): FP4-Local is
 the live model**, at MTP K=2 (fastest K with thinking on and under concurrency), otherwise nvidia's recipe. The user judged the
 bigger KV pool, the memory headroom and the cheap warm hits worth the slower raw speed. It's served as `qwen3.8-flash-next` with no
@@ -191,8 +192,8 @@ Measured with the same probe and prompts as config C (`scripts/prefix_probe.py -
 published partial tail entry serves. A prompt that shares a long prefix but is not identical floors to a 4,096-token boundary -
 recompute = `(prompt mod 4096) + 4096`, exact at 30K (5,386) and 120K (6,274). So "resume at the exact prompt end" is true for
 repeats, not for appends.
-For pi, which re-sends the whole history every turn, this removes a ~0.8 s fixed cost per turn on config C. Cold misses are
-unaffected (and ~10% slower here, see cold prefill above).
+For pi this removes the recompute on byte-identical repeats (e.g. an unchanged resume); a normal turn is an append and still
+recomputes ~6K tokens (~2.3 s), see PI.md "The 4,096 floor". Cold misses are unaffected (and slower here, see cold prefill below).
 
 ### Recipe bench (MiMo recipe `bench/mimobench.py`, temperature 0, thinking off, unique prefixes; run on the head)
 
@@ -495,4 +496,4 @@ Knobs: `SPEC_TOKENS` (default 4, nvidia's), `MAX_SEQS`, `MAX_BATCHED`, `GMU` (0.
 - The b12x build is a community nightly, not upstream vLLM. Pinned by digest here; behaviour can change between nightlies.
 - Vision: smoke-tested only (2026-10-19): a two-colour PNG answered correctly by the server (thinking off, 0.58 s) and through
   pi with `"input": ["text", "image"]`. No image-quality benchmark, no image-prompt speed numbers, video not tried.
-- Not exercised: 1M context, real pi agent sessions, multi-agent stall behaviour (QWEN.md).
+- Not measured: 1M context, a real pi agent-session benchmark (task success / wall-clock), multi-agent stall behaviour (QWEN.md).

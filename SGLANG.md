@@ -44,7 +44,7 @@ NVFP4), 47.5 / 87.6 tok/s at 1 / 4 streams (PixelML recipe). Both used older SGL
 
 Reading: single-stream SGLang on GB10 sits at or below what FP4-Local already does here. Its strength is wide batching (c=16–96),
 which a few pi agents don't use. With FP4-Local it would also lose two things the user picked FP4-Local for: the NVMe-backed PLE
-table, which is why vLLM b12x has a 5.5M-token KV pool (an SGLang NVMe PLE backend exists only as open PR #36567 and the
+table, which is why vLLM b12x has a 5.5M-token KV pool in benchmark mode (since 2026-10-21 live mode holds the table in GPU memory instead, 4.54M, FP4LOCAL.md; the NVMe option is still what frees that memory) (an SGLang NVMe PLE backend exists only as open PR #36567 and the
 `qwen4-main-squashed` branch), and the measured zero-recompute warm prefix hits (SGLang's hybrid-model prefix cache is untested here).
 One real difference: SGLang could run **expert parallelism**, which the b12x build refuses. That is the main unproven suspect for
 FP4-Local's ~20% concurrency gap to config C. Whether SGLang's EP would close it is unmeasured.
