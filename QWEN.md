@@ -3,7 +3,7 @@
 > **Status 2026-10-16:** nvidia's QAD quant `Qwen3.8-Flash-Next-FP4-Local` was measured against config C ([FP4LOCAL.md](FP4LOCAL.md)): same quality,
 > a bit slower, but a bigger KV pool and zero-recompute warm cache hits. **It replaced config C in production**: live at K=2
 > (`LIVE=1 SPEC_TOKENS=2 fp4local/up.sh`, served as `qwen3.8-flash-next`; PLE table in GPU memory since 2026-10-21, GMU 0.84,
-> KV ~4.54M). Config C, which this page tunes, is still installed: `fp4local/down.sh --qwen`. MiMo is not installed
+> KV ~4.54M). Config C, which this page tunes, is still installed: `fp4local/down.sh --qwen`. MiMo is not on the head (2026-10-25)
 > (`mimo/setup_nodes.sh && mimo/up.sh` to reinstall).
 > History, 2026-10-07: config C (GMU 0.835, MAX_NUM_SEQS 8) serving again after a day on MiMo-V2.6-Flash ([MIMO.md](MIMO.md)).
 > Head-to-head: [QWEN_VS_MIMO.md](QWEN_VS_MIMO.md); Qwen won on speed and on quality. The staged 2026-10-04 change below was dropped, never used.

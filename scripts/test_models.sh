@@ -10,6 +10,8 @@ on() {   # fake ssh: understands the three commands stop_other_models sends
   case "$cmd" in
     *"name=^vllm-fn"*) for c in ${RUN[$n]}; do [ "$c" = vllm-fn ] && echo id; done; true ;;
     *"./stop.sh"*) RUN[$n]=$(tr ' ' '\n' <<<"${RUN[$n]}" | grep -vx vllm-fn | tr '\n' ' ') ;;
+    *"docker ps --format '{{.Names}} {{.Image}}'"*)   # harness-* containers run the quality image
+      for c in ${RUN[$n]}; do case $c in harness*) echo "$c spark-quality:evalplus-0.3.1" ;; *) echo "$c some/image:tag" ;; esac; done; true ;;
     *"docker ps --format"*) tr ' ' '\n' <<<"${RUN[$n]}" | grep . || true ;;
     *"docker rm -f "*) c=${cmd#docker rm -f }; c=${c%% *}; RUN[$n]=$(tr ' ' '\n' <<<"${RUN[$n]}" | grep -vx "$c" | tr '\n' ' ') ;;
     *) echo "unexpected: $cmd" >&2; return 1 ;;
@@ -33,4 +35,5 @@ check "idle cluster"                       vllm_fp4local "" "" ok "" ""
 check "refuses an unknown container"       vllm_fp4local "vllm_newmodel" "" refuse "" ""
 check "refuses unknown on the worker only" vllm_glm      "vllm_fp4local" "something_else" refuse "" ""
 check "empty keep stops every model"       ""            "vllm_glmfp4 vllm_fp4local" "vllm_glmfp4" ok "" ""
+check "ignores a quality-harness container" vllm_mimo    "vllm_fp4local" "vllm_fp4local harness_x" ok "" "harness_x"
 exit $fail

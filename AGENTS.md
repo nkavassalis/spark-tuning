@@ -8,7 +8,8 @@ Public notes, scripts and measured results from tuning LLM serving on a 2-node D
 - Qwen3.8-Flash-Next (NVFP4 + FP8-dense, MTP K=2): `QWEN.md`, `FP8DENSE.md`. Tuned; the production model (config C) until 2026-10-16, now installed but not serving.
 - MiMo-V2.6-Flash-RL (DFlash 7): `MIMO.md`. Set up, benchmarked, then **removed from both nodes** on 2026-10-07. Reinstalled
   for one day on 2026-10-23 for a temperature study (thinking off: 0.6 beats the server's 1.0 on MBPP+, p=0.011, and 1.0 is 1.3–1.7×
-  slower to solve; thinking on: tie; MIMO.md "Sampling temperature"), then removed again.
+  slower to solve; thinking on: tie; MIMO.md "Sampling temperature"), then removed again. Reinstalled 2026-10-24 for the 32K thinking-budget rerun (COMPARISON.md
+  "Thinking budget 32K instead of 16K"); on 2026-10-25 removed from the **head only**: the worker keeps its weights and image.
 - GLM-5.3-Flash, autotrust NAS-pruned NVFP4 builds E192 / E224 (NVFP4 MTP K=2): `GLM.md`. Benchmarked 2026-10-13:
   ties or beats Qwen C on every task benchmark (not on corpus NLL), 2–3× slower decode (~11.5 vs ~25.5 engine steps/s). E224 is the better GLM
   (same speed, 100% long context). **Removed from both nodes** on 2026-10-13 (checkpoints, image, caches); `GLM_VARIANT=E224 glm/setup_nodes.sh && GLM_VARIANT=E224 glm/up.sh` rebuilds it (158 GB download).
@@ -24,10 +25,13 @@ Public notes, scripts and measured results from tuning LLM serving on a 2-node D
   MTP K=3 (nvidia's K=5 is the slowest K here), `--language-model-only` (the full recipe dipped the head to ~1.4 GiB free after
   weight load). Best LiveCodeBench on the cluster (55.0%, vs config C p=0.003), ties elsewhere; decode 41/37 tok/s (effort low/max)
   vs Qwen FP4-Local 63/50. **Removed from both nodes** on 2026-10-17; reinstalled overnight 2026-10-23/24 for a temperature study (0.6 vs 1.0: no
-  significant quality effect, LCB 57.5 / 53.8; `low` timed at 4.2 s per HumanEval+ problem; GLMFP4.md "Sampling temperature"), then removed again. `glmfp4/setup_nodes.sh && DEFAULT_EFFORT=high SPEC_TOKENS=3 glmfp4/up.sh` rebuilds it (166 GiB), `glmfp4/down.sh --fp4local` goes back.
+  significant quality effect, LCB 57.5 / 53.8; `low` timed at 4.2 s per HumanEval+ problem; GLMFP4.md "Sampling temperature"), then removed again. Reinstalled 2026-10-24 for the 32K rerun; on 2026-10-25 removed from
+  the **head only** (the worker keeps its 166 GiB copy). `glmfp4/setup_nodes.sh && DEFAULT_EFFORT=high SPEC_TOKENS=3 glmfp4/up.sh` rebuilds it (166 GiB), `glmfp4/down.sh --fp4local` goes back.
 - Head-to-head: `QWEN_VS_MIMO.md` (and the three-way tables in `GLM.md`). **Current state: nvidia FP4-Local (K=2) serving on :8000 as
   `qwen3.8-flash-next`; config C is installed and comes back with `fp4local/down.sh --qwen`.**
-  MiMo is not installed; `mimo/setup_nodes.sh && mimo/up.sh` rebuilds it (~30 min, 178 GB download).
+  MiMo and GLM FP4-Local are not on the head (2026-10-25; the worker still has both); `mimo/setup_nodes.sh && mimo/up.sh` rebuilds
+  MiMo (the head re-downloads ~178 GB, the worker rsync is then mostly a no-op).
+  Off-cluster: Recursive Flint on a Mac mini, sister repo [mac-tuning](https://github.com/nkavassalis/mac-tuning) (2026-10-25).
 Goal for all: fast, high-quality single-user code generation for coding agents, with no change that
 alters output quality unless it is measured.
 
@@ -82,7 +86,7 @@ tell the user. Fixing it means scrubbing plus a history rewrite, and rotating an
 ## How to run
 ```bash
 cp cluster.env.example cluster.env   # fill in (never commit)
-mimo/setup_nodes.sh                  # idempotent; ~178 GB weights (MiMo is NOT installed on the nodes as of 2026-10-24)
+mimo/setup_nodes.sh                  # idempotent; ~178 GB weights (MiMo is NOT on the head as of 2026-10-25; the worker keeps a copy)
 mimo/up.sh                           # stops Qwen (FP4-Local or config C), starts MiMo (~13.5 min) + proxy
 mimo/down.sh --fp4local              # back to the live Qwen FP4-Local (--qwen: config C)
 ```

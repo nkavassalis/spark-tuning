@@ -1,0 +1,58 @@
+{
+ "per_task": {
+  "lcb/abc388_g": true,
+  "lcb/abc397_g": false,
+  "lcb/abc389_f": false,
+  "lcb/abc394_f": true,
+  "lcb/arc192_a": false,
+  "lcb/abc396_c": true,
+  "lcb/arc193_b": false,
+  "lcb/arc196_b": false,
+  "lcb/abc391_f": false,
+  "lcb/abc392_f": false
+ },
+ "detail": {
+  "lcb/abc388_g": {
+   "pass": true,
+   "why": "pass"
+  },
+  "lcb/abc397_g": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/abc389_f": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/abc394_f": {
+   "pass": true,
+   "why": "pass"
+  },
+  "lcb/arc192_a": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/abc396_c": {
+   "pass": true,
+   "why": "pass"
+  },
+  "lcb/arc193_b": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/arc196_b": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/abc391_f": {
+   "pass": false,
+   "why": "no code"
+  },
+  "lcb/abc392_f": {
+   "pass": false,
+   "why": "runtime error on test 16"
+  }
+ },
+ "accuracy": 0.3,
+ "n": 10
+}

@@ -224,9 +224,9 @@ row that finds anything cached says so out loud.
 ## Provider config and model switching
 
 The local pi config (outside this repo) has a `qwen` provider at `<head>:8000/v1`, plus `mimo` at
-`<head>:8000/mimo/v1` (inert — MiMo is not installed) and a GLM entry when provisioned. Only the provider matching the
+`<head>:8000/mimo/v1` (inert — MiMo is not served; not on the head as of 2026-10-25) and a GLM entry when provisioned. Only the provider matching the
 served model works; `mimo/setup_nodes.sh && mimo/up.sh` / `GLM_VARIANT=E224 glm/setup_nodes.sh && GLM_VARIANT=E224 glm/up.sh`
-(neither installed as of 2026-10-24) / `mimo/down.sh --fp4local` (live FP4-Local) or `--qwen` (config C) change which one
+(neither on the head as of 2026-10-25) / `mimo/down.sh --fp4local` (live FP4-Local) or `--qwen` (config C) change which one
 answers. Qwen's template defaults to thinking **on**, which is the slower path above.
 
 The `qwen` entry, IP-free, is [pi/models.json.example](pi/models.json.example) (copy it to `~/.pi/agent/models.json` and

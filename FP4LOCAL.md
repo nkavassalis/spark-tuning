@@ -469,6 +469,15 @@ that a request's own `temperature` still wins is vLLM's usual default handling, 
 
 ---
 
+## Thinking budget 32K (2026-10-24)
+
+LiveCodeBench and the time-to-solve subsets rerun at a 32,768-token budget (`THINK_MAX_TOKENS=32768`) on the live server (K=2), T=0.6:
+`xhigh` 46.2 → **48.8** (0 lost / 2 gained, p=0.50), `medium` 43.8 → **51.2** (1 / 7, p=0.070). 36/80 answers still hit the 32K cap
+at both levels (40 and 43 hit 16K). Time to solve (`medium`): HumanEval+ unchanged (36/41, 14.3 s), LCB subset 1/10 at 564 s per
+problem (302 s at 16K), 9/10 at the cap. At 32K, MiMo and GLM FP4-Local both reach 58.8 and beat `xhigh` (p=0.021). Full table and
+caveats: [COMPARISON.md](COMPARISON.md) "Thinking budget 32K instead of 16K". Results: `results/quality/F4-deep32-xhigh`,
+`results/quality/F4-deep32-medium`, `results/quality/TTS32-fp4local-medium`.
+
 ## How to run it again
 
 ```bash

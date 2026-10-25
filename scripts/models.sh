@@ -17,7 +17,9 @@ stop_other_models() {
       [ "$c" = "$keep" ] && continue
       if grep -qx "$c" <<<"$running"; then echo "== stopping $c on $n"; on "$n" "docker rm -f $c >/dev/null"; fi
     done
-    running=$(on "$n" "docker ps --format '{{.Names}}'" | grep -vx "$keep" || true)
+    # The quality harness (quality/*.sh, image spark-quality:*) runs on the worker and holds no model: let it be
+    # (2026-10-24: a harness container for another server made mimo/up.sh refuse after config C was already stopped).
+    running=$(on "$n" "docker ps --format '{{.Names}} {{.Image}}'" | awk '$2 !~ /^spark-quality:/ {print $1}' | grep -vx "$keep" || true)
     if [ -n "$running" ]; then echo "refusing: other containers still running on $n:"; echo "$running"; exit 1; fi
   done
 }

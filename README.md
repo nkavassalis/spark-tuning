@@ -96,11 +96,12 @@ mimo/setup_nodes.sh      # (re)provision: recipe checkout, ~178 GB weights on bo
 mimo/up.sh               # stop Qwen, start MiMo + tool-call-cap proxy (~11-15 min)
 mimo/down.sh --qwen      # stop MiMo, relaunch config C (~11 min)
 mimo/down.sh --fp4local  # stop MiMo, relaunch the live FP4-Local
-GLM_VARIANT=E224 glm/setup_nodes.sh && GLM_VARIANT=E224 glm/up.sh   # GLM-5.3-Flash (not installed now); glm/down.sh --fp4local to go back
+GLM_VARIANT=E224 glm/setup_nodes.sh && GLM_VARIANT=E224 glm/up.sh   # GLM-5.3-Flash (not installed, 2026-10-25); glm/down.sh --fp4local to go back
 LIVE=1 SPEC_TOKENS=2 fp4local/up.sh   # the live model: nvidia FP4-Local as qwen3.8-flash-next, no key; plain fp4local/up.sh = benchmark mode (K=4, API key); fp4local/down.sh --qwen
-glmfp4/setup_nodes.sh && DEFAULT_EFFORT=high SPEC_TOKENS=3 glmfp4/up.sh   # nvidia GLM FP4-Local (not installed now); glmfp4/down.sh --fp4local
+glmfp4/setup_nodes.sh && DEFAULT_EFFORT=high SPEC_TOKENS=3 glmfp4/up.sh   # nvidia GLM FP4-Local (not on the head, 2026-10-25; worker keeps a copy); glmfp4/down.sh --fp4local
 
-MiMo is **not installed** on the nodes right now (removed 2026-10-07, reinstalled and removed again 2026-10-23); `setup_nodes.sh` rebuilds it from scratch.
+MiMo is **not on the head** (2026-10-25: removed 2026-10-07, reinstalled 2026-10-23 and 2026-10-24, removed from the head 2026-10-25; the worker
+keeps its weights and image). `setup_nodes.sh` re-downloads it on the head and rsyncs whatever the worker lacks.
 ```
 
 ## Tests

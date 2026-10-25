@@ -8,7 +8,8 @@ pinned at commit `9c699a2`. The recipe's image, four patches and serving default
 This page covers what we added around it, what we measured, and the agent caveats.
 
 **Status (2026-10-07):** set up, tested, benchmarked, then **removed from both nodes**. Reinstalled for one day on 2026-10-23
-for the temperature study below, then removed again; **not installed now**. The cluster serves Qwen FP4-Local
+for the temperature study below, then removed again. Reinstalled 2026-10-24 for the 32K thinking-budget rerun, then on 2026-10-25
+removed from the **head only**; the worker keeps its weights, `mimo-cache`, `mimo-recipe` and the recipe image (2026-10-25). The cluster serves Qwen FP4-Local
 ([FP4LOCAL.md](FP4LOCAL.md), since 2026-10-16); MiMo is kept only as this documentation plus the scripts and results here. To run it again for future
 model investigation: `mimo/setup_nodes.sh` (re-downloads 178 GB weights, ~25 min, then rsyncs to the worker in
 ~6 min) and `mimo/up.sh` (~14 min to serving). Agents then use `http://<head>:8000/mimo/v1` (the tool-call-cap
@@ -204,7 +205,20 @@ Run on the worker with `API=http://<head-link-ip>:8888 MODEL=mimo-v2.6-flash` an
 (drop `THINK_KWARGS` for thinking on). Files: `results/quality/M-t{06,10}-{off,deep}/`, `results/quality/TTS-mimo-{off,on}-t{06,10}/`.
 Lowest free memory over the whole day: 3.5 GiB (memory guard at 1.5 GiB never fired).
 
+## Thinking budget 32K (2026-10-24/25)
+
+Reinstalled 2026-10-24 for a 32,768-token rerun (`THINK_MAX_TOKENS=32768`, thinking on, raw :8888, top_k unset). LiveCodeBench:
+T=1.0 45.0 → **58.8** (0 lost / 11 gained, **p=0.001**; vs the first 16K run 46.2, p=0.002), T=0.6 48.8 → **57.5** (2 / 9, p=0.065).
+Answers at the cap fell from 38–40 to 29 of 80. MiMo gained more from the budget than any other model here: from last to first on LCB,
+tied with GLM FP4-Local (p=1.0), ahead of Qwen FP4-Local `xhigh` (p=0.021). Time to solve (T=0.6): HumanEval+ 37/41 at 22.1 s per
+problem (unchanged), LCB subset 1/10 at 717 s (414 s at 16K), 8/10 at the cap. Full table: [COMPARISON.md](COMPARISON.md) "Thinking
+budget 32K instead of 16K". Results: `results/quality/M-deep32-t10`, `results/quality/M-deep32-t06`, `results/quality/TTS32-mimo-on-t06`.
+
 ## What is on the nodes / how it was removed
+
+**2026-10-25: removed from the head only** after the 32K rerun (reinstalled 2026-10-24): weights, `mimo-cache`, `mimo-recipe`,
+`mimo-toolcap` and the recipe image are gone from the head (508 GB free afterwards, shared with the GLM FP4-Local removal); the worker
+still has `models/MiMo-V2.6-Flash-RL` (166G), `mimo-cache`, `mimo-recipe` and the image, so `mimo/setup_nodes.sh` only has to rebuild the head.
 
 **Reinstalled 2026-10-23 for the temperature study above, then removed again the same day.** Removed: each node's
 `models/MiMo-V2.6-Flash-RL`, `mimo-cache`, `mimo-recipe`, `mimo-toolcap`, `mimo-setup.log`, plus `docker rmi` of the recipe image

@@ -15,7 +15,7 @@ the server. Each model runs its tested deployment:
 > **2026-10-13:** GLM-5.3-Flash (autotrust E192/E224) was measured with the same benchmarks and harness; three-way tables
 > are in [GLM.md](GLM.md).
 >
-> **2026-10-24:** neither deployment here is serving (live: Qwen FP4-Local, [FP4LOCAL.md](FP4LOCAL.md); MiMo not installed).
+> **2026-10-25:** neither deployment here is serving (live: Qwen FP4-Local, [FP4LOCAL.md](FP4LOCAL.md); MiMo not on the head, the worker keeps a copy).
 > MiMo at 0.6 vs 1.0 (thinking-off MBPP+ 75.4 vs 70.6, p=0.011) and time to solve: MIMO.md "Sampling temperature".
 > Every model × setting: [COMPARISON.md](COMPARISON.md).
 

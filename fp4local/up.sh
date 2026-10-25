@@ -29,7 +29,8 @@ if [ "$LIVE" = 1 ]; then NAMES="qwen3.8-flash-next $SERVED_NAME"; API_KEY=""; fi
 stop_other_models "$CNAME"   # never two models in memory at once
 for n in "$HEAD" "$WORKER"; do on "$n" "docker rm -f $CNAME >/dev/null 2>&1 || true"; done
 for n in "$HEAD" "$WORKER"; do
-  on "$n" "docker ps -q | grep -q . && { echo 'refusing: other containers are running on $n'; docker ps; exit 1; } || true"
+  # quality-harness containers (image spark-quality:*) hold no model; anything else does (same rule as scripts/models.sh)
+  on "$n" "docker ps --format '{{.Image}}' | grep -qv '^spark-quality:' && { echo 'refusing: other containers are running on $n'; docker ps; exit 1; } || true"
 done
 for n in "$WORKER" "$HEAD"; do drop_caches "$n"; done
 

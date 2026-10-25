@@ -24,7 +24,7 @@ the noise floor (Qwen A run twice) is 2–3 problems each way on HumanEval+/MBPP
 | Model | Control | Levels | Default when the request sends nothing | What pi sends |
 |---|---|---|---|---|
 | Qwen3.8-Flash-Next (A/B/C, FP4-Local) | `enable_thinking` + `reasoning_effort` (thinking on only) | off; `low`, `medium`, `xhigh` (`high` = HTTP 400) | thinking on, **`xhigh`** | `medium`, temperature 0.6 (`samplingParams`, since 2026-10-19) |
-| MiMo-V2.6-Flash-RL | `enable_thinking` only (no effort control in the template or model card) | off; on | template: on. **Our server: off** (recipe default, tool-call-storm mitigation) | — (not installed) |
+| MiMo-V2.6-Flash-RL | `enable_thinking` only (no effort control in the template or model card) | off; on | template: on. **Our server: off** (recipe default, tool-call-storm mitigation) | — (not on the head, 2026-10-25) |
 | GLM-5.3-Flash (E192, E224, FP4-Local) | `reasoning_effort` only (always thinks) | `low` (≈ no reasoning on easy prompts, long on hard ones), `high`, anything else = `max` | **`max`** | `medium`, which GLM treats as `max` (inferred, see GLMFP4.md) |
 
 Before 2026-10-18 no Qwen run sent `reasoning_effort`, so every older Qwen "thinking on" number is at `xhigh`.
@@ -33,7 +33,7 @@ Before 2026-10-18 no Qwen run sent `reasoning_effort`, so every older Qwen "thin
 
 Thinking off: greedy unless the row states a temperature, `max_tokens` 1536 (GSM8K 1024; GLM 4096). Thinking on: seeded, 16K budget; sampling Qwen 0.6 / 0.95 / 20,
 MiMo and GLM 1.0 / 0.95. HumanEval+ and MBPP+ are "plus" (base + extra tests). LiveCodeBench: 80 stdin problems; about half of
-every model's runs hit the 16K cap, so it measures "solves it within 16K tokens".
+every model's runs hit the 16K cap, so it measures "solves it within 16K tokens". At 32K the order changes (MiMo first): see "Thinking budget 32K instead of 16K" below.
 
 | Model | Setting | HumanEval+ (164) | MBPP+ (378) | GSM8K (1319) | **LiveCodeBench** (80) | Long context 64K/128K (144) |
 |---|---|---|---|---|---|---|
@@ -104,6 +104,51 @@ Qwen reasons in the visible answer on hard problems (10.5K tokens). n=10 can't s
 1.3× (off) / 1.7× (on) as long as at 0.6 for the same HumanEval+ solve count; even at 0.6 it is 1.5× Qwen's thinking-off time
 and about Qwen `medium`'s with thinking on, at a lower pass rate.
 
+## Thinking budget 32K instead of 16K (2026-10-24/25)
+
+Every thinking-on LiveCodeBench run above stopped at 16,384 tokens, and 35–54% of every model's answers hit that cap. We reran
+LCB and the time-to-solve subsets at **32,768** (`THINK_MAX_TOKENS=32768`, the knob added to `quality/run_deep.sh` /
+`quality/run_tts.sh` for this) on the same 80 problems, seeds and sandbox. Qwen FP4-Local ran on the live server (K=2, PLE in GPU memory),
+MiMo with the recipe settings (DFlash 7, raw :8888), GLM FP4-Local with `DEFAULT_EFFORT=high SPEC_TOKENS=3` and the API key. Concurrency 8 for LCB, 1 for time to
+solve. One run per cell. Result folders `results/quality/{F4-deep32-xhigh,F4-deep32-medium,M-deep32-t10,M-deep32-t06,GF4-deep32-t06,GF4-deep32-t10}`
+and `results/quality/TTS32-*`.
+
+| Model | Setting | LCB at 16K | **LCB at 32K** | paired vs 16K | at the cap, 16K → 32K | mean tokens, 16K → 32K |
+|---|---|---|---|---|---|---|
+| Qwen FP4-Local | `xhigh`, T=0.6 | 46.2 | 48.8 | 0 lost / 2 gained, p=0.50 | 40 → 36 | 10,443 → 18,667 |
+| | `medium`, T=0.6 | 43.8 | 51.2 | 1 / 7, p=0.070 | 43 → 36 | 10,592 → 18,536 |
+| MiMo | thinking on, T=1.0 | 45.0 | **58.8** | 0 / 11, **p=0.001** | 40 → 29 | 9,854 → 16,032 |
+| | thinking on, T=0.6 | 48.8 | 57.5 | 2 / 9, p=0.065 | 38 → 29 | 9,331 → 14,971 |
+| GLM FP4-Local | `high`, T=1.0 | 53.8 | **58.8** | 3 / 7, p=0.34 | 28 → 28 | 7,259 → 13,800 |
+| | `high`, T=0.6 | 57.5 | 48.8 | 9 / 2, p=0.065 | 31 → 30 | 7,846 → 14,367 |
+
+Averaged over the two settings per model: **MiMo 58.1%, GLM 53.8%, Qwen 50.0%** at 32K, against 46.7 / 55.4 / 45.8% over each
+model's 16K runs. At 32K, MiMo (1.0) and GLM (1.0) each beat Qwen `xhigh` (p=0.021 both) and Qwen `medium` at p=0.070; MiMo and GLM
+tie (4 / 4, p=1.0). GLM 1.0 over GLM 0.6 at 32K is p=0.039, but at 16K the order was the other way round, so read it as noise
+(two runs, many comparisons). What it means:
+- **The 16K budget understated MiMo most**, which gained 9–14 points and moved from last to first. Qwen gained 3–7 points (not
+  significant). GLM gained nothing: it already finished more answers under 16K, and at 32K it still hits the cap on ~29/80, the same
+  count as at 16K, so its unfinished problems don't finish with more room.
+- **The 16K and 32K runs are independent samples, not one answer continued.** Of the answers that finished under 16K, only 0–6 per
+  model came back token-identical at 32K, although the seeds are the same. vLLM with speculative decoding and 8 concurrent requests
+  doesn't reproduce a seeded sample (inferred; the cause wasn't isolated). That's why GLM can lose 9 problems: they were redrawn, not
+  cut short. (Flint under `rec` on the Mac does reproduce: same answer, extended; see
+  [mac-tuning](https://github.com/nkavassalis/mac-tuning).)
+- Qwen still hits even the 32K cap on 36/80 LCB problems.
+
+Time to solve at 32K (T=0.6, concurrency 1, `results/quality/TTS32-*`):
+
+| Model | Setting | HE+ solved / 41 | s per problem | LCB solved / 10 | s per problem | at the cap / 10 | mean tokens |
+|---|---|---|---|---|---|---|---|
+| Qwen FP4-Local (K=2, live server) | `medium` | 36 (16K: 36) | 14.3 (14.7) | 1 (1) | **564** (302) | 9 (9) | 30,471 |
+| MiMo (DFlash 7) | thinking on | 37 (37) | 22.1 (21.8) | 1 (1) | 717 (414) | 8 (8) | 27,173 |
+| GLM FP4-Local (K=3) | `high` | 37 (38) | **9.0** (16.2) | **3** (2) | 628 (344) | 6 (6) | 21,925 |
+
+HumanEval+ is unaffected by the budget (one answer in all six runs reached 16K). On the LCB subset the extra budget roughly doubles the time per
+problem and buys at most one more solve on 10: the hard problems that hit 16K mostly hit 32K too. GLM's faster HE+ (9.0 vs 16.2 s)
+is a redraw: its 16K run had one answer reasoning into the cap. The Qwen run shared the live server with pi: 5 of 620 load samples
+showed a second request, so its times are an upper bound.
+
 ## Speed
 
 `scripts/bench_decode.py`: 500 tokens, T=0.6, median of 3, mean of 6 cells (code / code_ts / edit at 1K and 128K). Recipe bench:
@@ -130,8 +175,10 @@ nothing else on the server.
   problems, and faster than GLM `high` there too. Don't pick `xhigh`.
 - **Mechanical edits and small functions: Qwen with thinking off**, ~3× faster again at the same HumanEval+ pass rate.
 - **A run of hard algorithmic problems: GLM FP4-Local at `high`** (temperature makes no measurable difference for GLM; 0.6 is fine) (LiveCodeBench 55.0, the only significant coding-quality win over Qwen; GLM E224 also beat Qwen C on long context, p=0.016).
-  It's a model switch, not a per-request choice, and GLM is not installed (as of 2026-10-24; `glmfp4/setup_nodes.sh`, 166 GiB). Never run GLM at
+  It's a model switch, not a per-request choice, and GLM is not on the head (as of 2026-10-25; the worker keeps a copy; `glmfp4/setup_nodes.sh`, 166 GiB). Never run GLM at
   `max` for interactive work: 99 s per easy problem.
+- **Give hard problems a 32K budget, not 16K** (2026-10-25, above): MiMo gains significantly, Qwen a little, GLM nothing; easy
+  problems never come near either cap, so the larger cap only costs time on the hard ones (about 2× per problem).
 - Keep one thinking level per session: changing it re-prefills the whole history ([PI.md](PI.md)).
-- MiMo lost to Qwen on speed everywhere and on MBPP+ significantly; it is not installed. If it comes back, 0.6 beats the
+- MiMo lost to Qwen on speed everywhere and on MBPP+ significantly; it is not on the head (2026-10-25). If it comes back, 0.6 beats the
   server's 1.0 on MBPP+ (thinking off) and on time to solve, but the recipe found 0.6 makes tool-call storms more frequent (MIMO.md).

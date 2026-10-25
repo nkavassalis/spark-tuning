@@ -42,7 +42,8 @@ GLM at high solved 2 of 10 to Qwen's 1 at every level ([FP4LOCAL.md](FP4LOCAL.md
 
 **Removed from both nodes on 2026-10-17** after the tests (`glmfp4/setup_nodes.sh` re-downloads it, 166 GiB); the live model is unchanged (Qwen FP4-Local, K=2).
 Reinstalled overnight 2026-10-23/24 for the temperature study ("Sampling temperature" below: no quality effect; `low` timed at
-4.2 s per HumanEval+ problem) and removed again.
+4.2 s per HumanEval+ problem) and removed again. Reinstalled 2026-10-24 for the 32K thinking-budget rerun ("Thinking budget 32K"
+below), then on 2026-10-25 removed from the **head only**; the worker keeps the checkpoint and `~/glmfp4-cache` (2026-10-25).
 
 ---
 
@@ -345,6 +346,18 @@ NOTHINK_MAX_TOKENS=4096 NOTHINK_TEMP=0.6 NOTHINK_TOP_P=0.95 quality/run_quality.
 THINK_KWARGS='{"chat_template_kwargs":{"reasoning_effort":"high"}}' THINK_TEMP=0.6 THINK_TOP_P=0.95 THINK_TOP_K= quality/run_deep.sh
 <label>`; the same `THINK_*` with `quality/run_tts.sh <label>` (effort `low` or `high`).
 
+## Thinking budget 32K (2026-10-25)
+
+Reinstalled 2026-10-24 for a 32,768-token rerun (`THINK_MAX_TOKENS=32768`, `DEFAULT_EFFORT=high SPEC_TOKENS=3`, effort `high`).
+LiveCodeBench: T=1.0 53.8 → **58.8** (3 lost / 7 gained, p=0.34); T=0.6 57.5 → **48.8** (9 / 2, p=0.065). The two moved in opposite
+directions and neither change is significant: the extra budget bought GLM nothing on average (53.8% over the two 32K runs vs 55.4%
+over the three 16K ones). 28–30 of 80 answers hit the cap at both budgets: at `high` the problems GLM can't finish under 16K mostly
+don't finish under 32K either. The 9 "lost" problems include 107- and 480-token answers, so they were redrawn, not cut short: no
+model's 16K and 32K runs reproduce each other on this server stack (COMPARISON.md). Time to solve (T=0.6): HumanEval+ 37/41 at 9.0 s
+per problem (16.2 s at 16K, where one answer reasoned into the cap), LCB subset 3/10 at 628 s (344 s), 6/10 at the cap. GLM at 1.0
+ties MiMo at 32K (p=1.0) and beats Qwen FP4-Local `xhigh` (p=0.021). Full table: [COMPARISON.md](COMPARISON.md) "Thinking budget 32K
+instead of 16K". Results: `results/quality/GF4-deep32-t06`, `results/quality/GF4-deep32-t10`, `results/quality/TTS32-glmfp4-high-t06`.
+
 ## How to run it again
 
 ```bash
@@ -361,6 +374,8 @@ Knobs: `SPEC_TOKENS` (default 5, nvidia's; **use 3**), `DRAFT_MOE` (`humming`), 
 On the nodes: checkpoint in the HF cache (`models--nvidia--GLM-5.3-Flash-FP4-Local` + the shared `hub/blobs/` store, 166 GiB per
 node), caches in `~/glmfp4-cache` (root-owned files from the container; delete with a privileged container as in GLM.md).
 **Removed from both nodes on 2026-10-17**: only the 44 GLM-only blobs (165 GiB) were deleted from the shared blob store, no other model's links broke, and the b12x image stays because Qwen FP4-Local uses it. Head disk afterwards: 508 GB free.
+**2026-10-25:** after the 32K rerun, removed the same way from the **head only** (the 52 GLM-only files, 165.3 GiB; head back to 508 GB
+free); the worker keeps its copy.
 
 ## Caveats / not measured
 
