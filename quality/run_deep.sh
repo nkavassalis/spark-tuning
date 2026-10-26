@@ -2,6 +2,7 @@
 # Thinking-mode + long-context quality suite.   ./run_deep.sh <label>
 # Same container/sandbox arrangement as run_quality.sh. Output: ~/spark-quality/results/<label>/
 # Thinking budget: THINK_MAX_TOKENS (default 16384, every result before 2026-10-24; 32768 = the 2026-10-24 reruns).
+# LCB_DATA: problem file under data/ (default lcb80.jsonl; atc147.jsonl = the post-cutoff AtCoder set, mac-tuning FLINT.md).
 set -euo pipefail
 LABEL="${1:?usage: run_deep.sh <label>}"
 W="$HOME/spark-quality"; OUT="$W/results/$LABEL"; mkdir -p "$OUT" "$W/cache" "$W/data"
@@ -39,7 +40,7 @@ if has humaneval; then
 fi
 if has lcb; then
   echo "== [$LABEL] LiveCodeBench thinking"
-  "${RUN_NET[@]}" python3 deep_eval.py gen-think --task lcb --data /data/lcb80.jsonl --max-tokens "${THINK_MAX_TOKENS:-16384}" --out "results/$LABEL/lcb_think.jsonl"
-  "${RUN_SANDBOX[@]}" python3 deep_eval.py lcb-exec --data /data/lcb80.jsonl --gen /out/lcb_think.jsonl | tee "$OUT/lcb_score.txt"
+  "${RUN_NET[@]}" python3 deep_eval.py gen-think --task lcb --data "/data/${LCB_DATA:-lcb80.jsonl}" --max-tokens "${THINK_MAX_TOKENS:-16384}" --out "results/$LABEL/lcb_think.jsonl"
+  "${RUN_SANDBOX[@]}" python3 deep_eval.py lcb-exec --data "/data/${LCB_DATA:-lcb80.jsonl}" --gen /out/lcb_think.jsonl | tee "$OUT/lcb_score.txt"
 fi
 echo "== [$LABEL] done -> $OUT"

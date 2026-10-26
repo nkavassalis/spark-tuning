@@ -135,6 +135,9 @@ tie (4 / 4, p=1.0). GLM 1.0 over GLM 0.6 at 32K is p=0.039, but at 16K the order
   cut short. (Flint under `rec` on the Mac does reproduce: same answer, extended; see
   [mac-tuning](https://github.com/nkavassalis/mac-tuning).)
 - Qwen still hits even the 32K cap on 36/80 LCB problems.
+- **Contamination check (2026-10-26):** on 147 AtCoder problems newer than every model here, scored on sample tests only, Qwen
+  FP4-Local held its lcb80 level (53.7 / 53.1% `medium` / `xhigh` vs 53.8 / 53.8%). MiMo and GLM were not run (not on the head).
+  FP4LOCAL.md "Problems newer than the training data"; Flint's side is in mac-tuning.
 
 Time to solve at 32K (T=0.6, concurrency 1, `results/quality/TTS32-*`):
 

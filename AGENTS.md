@@ -66,7 +66,7 @@ tell the user. Fixing it means scrubbing plus a history rewrite, and rotating an
 | `pi/models.json.example` | IP-free copy of the pi provider config for the live Qwen: temperature 0.6 via `samplingParams`, image input on |
 | `cluster.env.example` | template for the untracked `cluster.env` (HEAD, WORKER, API, REPO, MIMO_RECIPE, optional API_KEY) |
 | `scripts/` | Qwen-era benchmark tools; `bench_decode.py` works for any model (`--model`, `--url`); `prefix_probe.py` measures prefix-cache behaviour; `watch_stalls.sh` is the 2 s stall sampler; `models.sh` = `stop_other_models`, the one-model-at-a-time guard every `up.sh` calls (`test_models.sh` tests it offline); `check_repo.py` is the doc/script drift check |
-| `quality/` | quality-eval harness (runs on a node with docker; `API` env required). `NOTHINK_TEMP`/`NOTHINK_TOP_P` sample thinking-off runs (unset = greedy); `run_tts.sh` + `tts_score.py` time to solve at concurrency 1 |
+| `quality/` | quality-eval harness (runs on a node with docker; `API` env required). `NOTHINK_TEMP`/`NOTHINK_TOP_P` sample thinking-off runs (unset = greedy); `run_tts.sh` + `tts_score.py` time to solve at concurrency 1; `run_deep.sh` `LCB_DATA` picks the LCB problem file (default `lcb80.jsonl`) |
 | `configs/` | diffs applied to the Qwen deployment repo (`env.diff`, `start.sh.patch`, FP8 overlays) |
 | `mimo/lib.sh` | shared vars: pinned recipe commit, image, iface/HCA defaults, ports, `on`, `drop_caches` |
 | `mimo/setup_nodes.sh` | recipe checkout + render `mimo.env` + weights (head download, rsync to worker) + patches |

@@ -478,6 +478,21 @@ problem (302 s at 16K), 9/10 at the cap. At 32K, MiMo and GLM FP4-Local both rea
 caveats: [COMPARISON.md](COMPARISON.md) "Thinking budget 32K instead of 16K". Results: `results/quality/F4-deep32-xhigh`,
 `results/quality/F4-deep32-medium`, `results/quality/TTS32-fp4local-medium`.
 
+## Problems newer than the training data: post-cutoff AtCoder (2026-10-26)
+
+A contamination check run for [mac-tuning](https://github.com/nkavassalis/mac-tuning) (FLINT.md "Testing for contamination",
+which has the method and the full tables). The set is 147 AtCoder ABC/ARC problems from 2026-07-04 to 2026-10-25, scored on the
+statement's sample tests only. FP4-Local ran in its live configuration (K=2, PLE table in GPU memory, GMU 0.84), locked with the
+API key for the run (2026-10-25 21:20 to 2026-10-26 06:36 UTC), at T=0.6, 32K and concurrency 8, `LCB_DATA=atc147.jsonl`:
+
+- **`medium` 53.7%, `xhigh` 53.1%** (79 / 78 of 147).
+- On lcb80, scored the same way, both read 53.8%, so Qwen lost nothing moving to problems newer than its training.
+- `medium` vs `xhigh` tie again: 4 problems only `medium` solved, 3 only `xhigh` (p=1.0).
+- 66 / 67 of the 147 answers hit the 32K cap.
+- Recursive Flint int4 on the Mac scored 68.0% on the same set (p≤0.0003 vs both).
+
+Results: `results/quality/F4-atc-medium`, `results/quality/F4-atc-xhigh`.
+
 ## How to run it again
 
 ```bash
