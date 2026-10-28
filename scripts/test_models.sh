@@ -8,6 +8,8 @@ declare -A RUN   # RUN[node]="space-separated running containers"
 on() {   # fake ssh: understands the three commands stop_other_models sends
   local n=$1 cmd=$2 c
   case "$cmd" in
+    *"name=^dsv41-1017-exl3-tf"*) for c in ${RUN[$n]}; do [ "$c" = dsv41-1017-exl3-tf ] && echo id; done; true ;;
+    *"dsv41-recipe && ./stop.sh"*) for c in h w; do RUN[$c]=$(tr ' ' '\n' <<<"${RUN[$c]}" | grep -vx dsv41-1017-exl3-tf | tr '\n' ' '); done ;;
     *"name=^vllm-fn"*) for c in ${RUN[$n]}; do [ "$c" = vllm-fn ] && echo id; done; true ;;
     *"./stop.sh"*) RUN[$n]=$(tr ' ' '\n' <<<"${RUN[$n]}" | grep -vx vllm-fn | tr '\n' ' ') ;;
     *"docker ps --format '{{.Names}} {{.Image}}'"*)   # harness-* containers run the quality image
@@ -35,5 +37,7 @@ check "idle cluster"                       vllm_fp4local "" "" ok "" ""
 check "refuses an unknown container"       vllm_fp4local "vllm_newmodel" "" refuse "" ""
 check "refuses unknown on the worker only" vllm_glm      "vllm_fp4local" "something_else" refuse "" ""
 check "empty keep stops every model"       ""            "vllm_glmfp4 vllm_fp4local" "vllm_glmfp4" ok "" ""
+check "fp4local up over deepseek (stop.sh)" vllm_fp4local "dsv41-1017-exl3-tf" "dsv41-1017-exl3-tf" ok "" ""
+check "deepseek up keeps its own pair"     dsv41-1017-exl3-tf "vllm_fp4local dsv41-1017-exl3-tf" "dsv41-1017-exl3-tf" ok "dsv41-1017-exl3-tf" "dsv41-1017-exl3-tf"
 check "ignores a quality-harness container" vllm_mimo    "vllm_fp4local" "vllm_fp4local harness_x" ok "" "harness_x"
 exit $fail

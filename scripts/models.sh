@@ -2,7 +2,7 @@
 # WORKER, REPO). Two models in unified memory at once is the overcommit that hung the head once (QWEN.md), so this lives in
 # one place instead of a hand-written stop list per up.sh (glm/up.sh and fp4local/up.sh each missed a model, 2026-10-24).
 # Adding a model: put its container name(s) here; scripts/check_repo.py fails until you do.
-MODEL_CONTAINERS="vllm_fp4local vllm_glmfp4 vllm_glm vllm_mimo mimo-toolcap"   # config C (vllm-fn) is stopped via its repo
+MODEL_CONTAINERS="vllm_fp4local vllm_glmfp4 vllm_glm vllm_mimo mimo-toolcap dsv41-1017-exl3-tf"   # config C (vllm-fn) is stopped via its repo
 
 # stop_other_models <container to keep>: stop config C and every other model container on both nodes, then refuse to go on
 # if anything else is still running (an unknown model must not end up sharing memory with this one).
@@ -10,6 +10,11 @@ stop_other_models() {
   local keep=$1 n c running
   if [ "$keep" != vllm-fn ] && on "$HEAD" "docker ps -q -f name=^vllm-fn\$" | grep -q .; then
     echo "== stopping Qwen config C (vllm-fn)"; on "$HEAD" "cd $REPO && ./stop.sh"
+  fi
+  # DeepSeek (deepseek/): the recipe's stop.sh stops both ranks and its memguard watchdogs and saves the logs; a bare
+  # docker rm would leave the watchdogs running.
+  if [ "$keep" != dsv41-1017-exl3-tf ] && on "$HEAD" "docker ps -aq -f name=^dsv41-1017-exl3-tf\$" | grep -q .; then
+    echo "== stopping DeepSeek (dsv41-recipe/stop.sh)"; on "$HEAD" "cd dsv41-recipe && ./stop.sh < /dev/null"
   fi
   for n in "$HEAD" "$WORKER"; do
     running=$(on "$n" "docker ps --format '{{.Names}}'")
