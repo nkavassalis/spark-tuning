@@ -1,0 +1,743 @@
+{
+ "per_task": {
+  "atc/abc465_a": true,
+  "atc/abc465_b": true,
+  "atc/abc465_c": true,
+  "atc/abc465_d": true,
+  "atc/abc465_e": true,
+  "atc/abc465_f": false,
+  "atc/abc465_g": false,
+  "atc/abc466_a": true,
+  "atc/abc466_b": true,
+  "atc/abc466_d": true,
+  "atc/abc466_e": true,
+  "atc/abc466_f": false,
+  "atc/abc466_g": false,
+  "atc/arc224_a": true,
+  "atc/arc224_b": true,
+  "atc/arc224_d": true,
+  "atc/arc224_e": true,
+  "atc/arc224_f": false,
+  "atc/abc467_a": true,
+  "atc/abc467_b": true,
+  "atc/abc467_c": true,
+  "atc/abc467_d": true,
+  "atc/abc467_e": true,
+  "atc/abc467_f": true,
+  "atc/abc467_g": true,
+  "atc/arc225_a": false,
+  "atc/arc225_b": true,
+  "atc/arc225_d": true,
+  "atc/arc225_e": false,
+  "atc/abc468_a": true,
+  "atc/abc468_b": true,
+  "atc/abc468_c": true,
+  "atc/abc468_d": true,
+  "atc/abc468_e": true,
+  "atc/abc468_f": true,
+  "atc/abc468_g": false,
+  "atc/abc469_a": true,
+  "atc/abc469_b": true,
+  "atc/abc469_c": true,
+  "atc/abc469_d": true,
+  "atc/abc469_f": true,
+  "atc/abc469_g": false,
+  "atc/abc470_a": true,
+  "atc/abc470_b": true,
+  "atc/abc470_c": false,
+  "atc/abc470_d": true,
+  "atc/abc470_f": true,
+  "atc/abc470_g": true,
+  "atc/arc226_a": true,
+  "atc/arc226_b": false,
+  "atc/abc471_a": true,
+  "atc/abc471_b": true,
+  "atc/abc471_c": true,
+  "atc/abc471_d": true,
+  "atc/abc471_e": true,
+  "atc/abc471_f": false,
+  "atc/abc471_g": false,
+  "atc/arc227_d": false,
+  "atc/arc227_e": false,
+  "atc/arc227_f": false,
+  "atc/abc472_a": true,
+  "atc/abc472_b": true,
+  "atc/abc472_c": true,
+  "atc/abc472_d": true,
+  "atc/abc472_g": true,
+  "atc/abc473_a": true,
+  "atc/abc473_b": true,
+  "atc/abc473_c": true,
+  "atc/abc473_d": true,
+  "atc/abc473_e": false,
+  "atc/abc473_f": true,
+  "atc/abc473_g": false,
+  "atc/arc228_a": false,
+  "atc/arc228_b": false,
+  "atc/arc228_c": false,
+  "atc/arc228_e": false,
+  "atc/arc229_b": false,
+  "atc/arc229_c": true,
+  "atc/arc229_d": false,
+  "atc/arc229_e": true,
+  "atc/arc229_f": false,
+  "atc/abc474_b": true,
+  "atc/abc474_c": true,
+  "atc/abc474_d": false,
+  "atc/abc474_e": false,
+  "atc/abc474_f": true,
+  "atc/abc475_a": true,
+  "atc/abc475_b": true,
+  "atc/abc475_c": true,
+  "atc/abc475_e": false,
+  "atc/abc475_f": false,
+  "atc/abc476_a": true,
+  "atc/abc476_b": true,
+  "atc/abc476_c": true,
+  "atc/abc476_d": true,
+  "atc/abc476_e": true,
+  "atc/abc476_f": true,
+  "atc/abc476_g": false,
+  "atc/arc230_a": true,
+  "atc/arc230_b": false,
+  "atc/arc230_c": false,
+  "atc/arc230_d": false,
+  "atc/arc230_e": false,
+  "atc/abc477_a": true,
+  "atc/abc477_b": true,
+  "atc/abc477_c": true,
+  "atc/abc477_d": true,
+  "atc/abc477_e": true,
+  "atc/abc477_f": true,
+  "atc/abc477_g": true,
+  "atc/abc478_a": true,
+  "atc/abc478_b": true,
+  "atc/abc478_c": true,
+  "atc/abc478_d": true,
+  "atc/abc478_f": true,
+  "atc/abc478_g": false,
+  "atc/arc231_a": true,
+  "atc/arc231_c": false,
+  "atc/arc231_e": false,
+  "atc/arc232_a": true,
+  "atc/arc232_b": false,
+  "atc/arc232_c": false,
+  "atc/arc232_d": false,
+  "atc/arc232_e": false,
+  "atc/abc479_a": true,
+  "atc/abc479_b": true,
+  "atc/abc479_c": true,
+  "atc/abc479_d": true,
+  "atc/abc479_e": true,
+  "atc/abc479_f": false,
+  "atc/abc479_g": true,
+  "atc/abc480_a": true,
+  "atc/abc480_b": true,
+  "atc/abc480_c": true,
+  "atc/abc480_d": true,
+  "atc/abc480_e": true,
+  "atc/abc480_f": true,
+  "atc/abc480_g": false,
+  "atc/abc481_a": true,
+  "atc/abc481_b": true,
+  "atc/abc481_c": true,
+  "atc/abc481_d": true,
+  "atc/abc481_e": true,
+  "atc/abc481_f": true,
+  "atc/abc481_g": false,
+  "atc/arc233_b": false,
+  "atc/arc233_c": false
+ },
+ "detail": {
+  "atc/abc465_a": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc465_b": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc465_c": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc465_d": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc465_e": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc465_f": {
+   "pass": false,
+   "why": "wrong answer on test 0"
+  },
+  "atc/abc465_g": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/abc466_a": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc466_b": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc466_d": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc466_e": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc466_f": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/abc466_g": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/arc224_a": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/arc224_b": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/arc224_d": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/arc224_e": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/arc224_f": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/abc467_a": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc467_b": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc467_c": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc467_d": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc467_e": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc467_f": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc467_g": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/arc225_a": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/arc225_b": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/arc225_d": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/arc225_e": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/abc468_a": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc468_b": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc468_c": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc468_d": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc468_e": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc468_f": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc468_g": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/abc469_a": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc469_b": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc469_c": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc469_d": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc469_f": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc469_g": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/abc470_a": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc470_b": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc470_c": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/abc470_d": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc470_f": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc470_g": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/arc226_a": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/arc226_b": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/abc471_a": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc471_b": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc471_c": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc471_d": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc471_e": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc471_f": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/abc471_g": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/arc227_d": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/arc227_e": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/arc227_f": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/abc472_a": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc472_b": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc472_c": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc472_d": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc472_g": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc473_a": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc473_b": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc473_c": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc473_d": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc473_e": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/abc473_f": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc473_g": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/arc228_a": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/arc228_b": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/arc228_c": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/arc228_e": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/arc229_b": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/arc229_c": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/arc229_d": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/arc229_e": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/arc229_f": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/abc474_b": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc474_c": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc474_d": {
+   "pass": false,
+   "why": "wrong answer on test 0"
+  },
+  "atc/abc474_e": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/abc474_f": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc475_a": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc475_b": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc475_c": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc475_e": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/abc475_f": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/abc476_a": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc476_b": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc476_c": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc476_d": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc476_e": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc476_f": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc476_g": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/arc230_a": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/arc230_b": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/arc230_c": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/arc230_d": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/arc230_e": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/abc477_a": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc477_b": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc477_c": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc477_d": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc477_e": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc477_f": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc477_g": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc478_a": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc478_b": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc478_c": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc478_d": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc478_f": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc478_g": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/arc231_a": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/arc231_c": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/arc231_e": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/arc232_a": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/arc232_b": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/arc232_c": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/arc232_d": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/arc232_e": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/abc479_a": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc479_b": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc479_c": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc479_d": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc479_e": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc479_f": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/abc479_g": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc480_a": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc480_b": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc480_c": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc480_d": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc480_e": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc480_f": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc480_g": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/abc481_a": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc481_b": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc481_c": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc481_d": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc481_e": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc481_f": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc481_g": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/arc233_b": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/arc233_c": {
+   "pass": false,
+   "why": "no code"
+  }
+ },
+ "accuracy": 0.6870748299319728,
+ "n": 147
+}

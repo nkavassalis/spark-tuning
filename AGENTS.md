@@ -27,12 +27,18 @@ Public notes, scripts and measured results from tuning LLM serving on a 2-node D
   vs Qwen FP4-Local 63/50. **Removed from both nodes** on 2026-10-17; reinstalled overnight 2026-10-23/24 for a temperature study (0.6 vs 1.0: no
   significant quality effect, LCB 57.5 / 53.8; `low` timed at 4.2 s per HumanEval+ problem; GLMFP4.md "Sampling temperature"), then removed again. Reinstalled 2026-10-24 for the 32K rerun; on 2026-10-25 removed from
   the **head only** (the worker keeps its 166 GiB copy). `glmfp4/setup_nodes.sh && DEFAULT_EFFORT=high SPEC_TOKENS=3 glmfp4/up.sh` rebuilds it (166 GiB), `glmfp4/down.sh --fp4local` goes back.
-- DeepSeek-V4.1-Flash-1017 (Mia EAQ v1 EXL3 2.9 bpw, TensorFold native Zig engine, DSpark drafts): `DEEPSEEK.md`. Reviewed and
-  set up 2026-10-28 without NFS (worker holds the full download and both weight files, the head only rank 0's files, 295 GiB; the head has 189 GiB free after it); **not served or
-  measured yet**: `deepseek/up.sh` stops the live model and waits for the user's go-ahead. The TensorFold "2x faster" card is the same
-  engine with LibertAI's near-identical 2.9 bpw pack, 2x vs vLLM: not set up (DEEPSEEK.md).
-- Head-to-head: `QWEN_VS_MIMO.md` (and the three-way tables in `GLM.md`). **Current state: nvidia FP4-Local (K=2) serving on :8000 as
-  `qwen3.8-flash-next`; config C is installed and comes back with `fp4local/down.sh --qwen`.**
+- DeepSeek-V4.1-Flash-1017 (Mia EAQ v1 EXL3 2.9 bpw, TensorFold native Zig engine, DSpark drafts): `DEEPSEEK.md`. Set up
+  2026-10-28 without NFS, served and measured 2026-10-28/29 (best LCB on the cluster, 76-79%; post-cutoff AtCoder 70.1% vs Qwen
+  53.7%; 4 streams), then **weights removed from both nodes** on 2026-10-29. Its image and recipe checkout stay;
+  `deepseek/setup_nodes.sh && deepseek/up.sh` rebuilds it (~400 GB download). The TensorFold "2x faster" card is the same engine
+  with LibertAI's near-identical 2.9 bpw pack: not set up (DEEPSEEK.md).
+- Recursive Flint, NVFP4 GGUF (head) and BF16 (worker), TP=1 each, vLLM nightly: `FLINT.md`. Measured 2026-10-29. The two builds tie
+  each other and the Mac's int4 build. NVFP4 beats Qwen FP4-Local on hard problems (LCB 63.8 vs 51.2, AtCoder 68.7 vs 53.7) and
+  prefills 2.4× faster; BF16 is too slow (34 tok/s). **Removed from both nodes** on 2026-10-29 (weights, cache, image);
+  `flint/setup_nodes.sh && flint/up.sh both` rebuilds it (~103 GB). The user's plan (2026-10-29) is Flint on the Mac mini as a pi
+  escalation model, in the private repo `pi-escalation`, not here.
+- Head-to-head: `QWEN_VS_MIMO.md` (and the three-way tables in `GLM.md`). **Current state (2026-10-29, back after the DeepSeek and Flint runs): nvidia
+  FP4-Local (K=2, `LIVE=1`) serving on :8000 as `qwen3.8-flash-next`; config C is installed and comes back with `fp4local/down.sh --qwen`.**
   MiMo and GLM FP4-Local are not on the head (2026-10-25; the worker still has both); `mimo/setup_nodes.sh && mimo/up.sh` rebuilds
   MiMo (the head re-downloads ~178 GB, the worker rsync is then mostly a no-op).
   Off-cluster: Recursive Flint on a Mac mini, sister repo [mac-tuning](https://github.com/nkavassalis/mac-tuning) (2026-10-25).
@@ -84,8 +90,10 @@ tell the user. Fixing it means scrubbing plus a history rewrite, and rotating an
 | `glm/patch_vllm.py` | idempotent in-container patch of vLLM 0.31.0 so the standalone `mtp-nvfp4/` draft loads |
 | `fp4local/lib.sh`, `setup_nodes.sh`, `up.sh`, `down.sh` | FP4-Local at TP=2 with nvidia's recipe (compile on, user-approved 2026-10-16); `API_KEY` locks it for benchmarks, `LIVE=1` serves it to agents |
 | `glmfp4/lib.sh`, `setup_nodes.sh`, `up.sh`, `down.sh [--fp4local\|--qwen]` | GLM FP4-Local at TP=2 with nvidia's recipe (+ LM-only, max-num-seqs 8); knobs `SPEC_TOKENS`, `MAX_BATCHED`, `GMU`, `EP`, `LM_ONLY`; `API_KEY` lock-out |
-| `DEEPSEEK.md` | DeepSeek-V4.1-Flash-1017 EXL3 2.9 bpw on TensorFold: recipe review, Mia vs LibertAI/TensorFold-card packs, no-NFS setup, test plan |
+| `DEEPSEEK.md` | DeepSeek-V4.1-Flash-1017 EXL3 2.9 bpw on TensorFold: recipe review, Mia vs LibertAI/TensorFold-card packs, no-NFS setup, speed, quality, contamination check |
 | `deepseek/lib.sh`, `setup_nodes.sh [--only N]`, `up.sh`, `down.sh [--fp4local\|--qwen]` | MiaAI-Lab's recipe (pinned `RECIPE_COMMIT`, unmodified) in its no-NFS mode: worker prepares, head gets rank 0's files; downloads/builds memory-capped (`DL_MEM`, `MEM_CAP`); `up.sh` runs the recipe's `./start.sh restart` (knobs `CONTEXT`, `PARALLEL`, `REASONING_EFFORT`, ...; `API_KEY` lock-out) |
+| `FLINT.md` | Recursive Flint NVFP4 / BF16 at TP=1 on one Spark each: setup, speed, quality vs the Mac int4, Qwen and DeepSeek |
+| `flint/lib.sh`, `setup_nodes.sh`, `up.sh [nvfp4\|bf16\|both]`, `down.sh [--fp4local\|--qwen]`, `run_suite.sh` | Flint on vLLM nightly (pinned digest), one variant per node; sha256-checked downloads in a memory-capped container; knobs `MAX_LEN`, `MAX_SEQS`, `GMU`, `CUDAGRAPH`; `API_KEY` lock-out; `run_suite.sh` is the quality suite run from the worker |
 | `LICENSE` | MIT (2026-10-17); vendored `mimo/toolcap/` keeps its upstream MIT notice |
 | `results/` | raw outputs; `results/mimo/` for MiMo |
 
@@ -111,7 +119,7 @@ scripts/test_models.sh                                 # stop_other_models, offl
 scripts/stage_pi_compaction.py --check                 # confirm the pi client staging (PI.md)
 node --test mimo/toolcap/*.test.cjs                    # 13 proxy unit tests, offline
 set -a; . ./cluster.env; set +a; mimo/test_mimo.py     # live: chat, tool-call parse, storm guard
-bash -n mimo/*.sh glm/*.sh glmfp4/*.sh fp4local/*.sh deepseek/*.sh scripts/*.sh quality/*.sh    # syntax
+bash -n mimo/*.sh glm/*.sh glmfp4/*.sh fp4local/*.sh deepseek/*.sh flint/*.sh scripts/*.sh quality/*.sh    # syntax
 python3 -m py_compile scripts/*.py quality/*.py mimo/*.py glm/*.py
 ```
 Benchmarks (`scripts/bench_decode.py`, recipe `bench/mimobench.py` run on the head, `scripts/prefix_probe.py`) are

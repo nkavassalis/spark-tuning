@@ -1,0 +1,179 @@
+{
+ "label": "flint-nvfp4 TP=1 vLLM nightly edad8b03, compile off, API key",
+ "thinking": "default",
+ "chat_kwargs": null,
+ "url": "http://<head>:8000",
+ "time": "2026-10-29 05:23:12",
+ "decode_tokens": 500,
+ "repeats": 3,
+ "rows": [
+  {
+   "context": 1000,
+   "temp": 0.6,
+   "task": "code",
+   "prompt_tokens": 823,
+   "decode_tok_s": 82.37033380140674,
+   "all_decode_tok_s": [
+    82.21498061073885,
+    82.37033380140674,
+    82.60613518260094
+   ],
+   "ttft_s": 0.06728315353393555,
+   "acceptance": null
+  },
+  {
+   "context": 1000,
+   "temp": 0.6,
+   "task": "code_ts",
+   "prompt_tokens": 825,
+   "decode_tok_s": 82.22504187747491,
+   "all_decode_tok_s": [
+    82.35541791163058,
+    82.21046272424506,
+    82.22504187747491
+   ],
+   "ttft_s": 0.0631258487701416,
+   "acceptance": null
+  },
+  {
+   "context": 1000,
+   "temp": 0.6,
+   "task": "edit",
+   "prompt_tokens": 998,
+   "decode_tok_s": 81.90837519693825,
+   "all_decode_tok_s": [
+    81.90837519693825,
+    81.88365541033812,
+    81.92362020005659
+   ],
+   "ttft_s": 0.09031987190246582,
+   "acceptance": null
+  },
+  {
+   "context": 32000,
+   "temp": 0.6,
+   "task": "code",
+   "prompt_tokens": 25623,
+   "decode_tok_s": 64.2607591587326,
+   "all_decode_tok_s": [
+    64.19532950981535,
+    64.2607591587326,
+    64.30180639806382
+   ],
+   "ttft_s": 0.14730095863342285,
+   "acceptance": null
+  },
+  {
+   "context": 32000,
+   "temp": 0.6,
+   "task": "code_ts",
+   "prompt_tokens": 25625,
+   "decode_tok_s": 64.22811833740636,
+   "all_decode_tok_s": [
+    64.22189841620933,
+    64.22811833740636,
+    64.25331779311027
+   ],
+   "ttft_s": 0.14511418342590332,
+   "acceptance": null
+  },
+  {
+   "context": 32000,
+   "temp": 0.6,
+   "task": "edit",
+   "prompt_tokens": 30784,
+   "decode_tok_s": 61.43121889046108,
+   "all_decode_tok_s": [
+    61.336659080265605,
+    61.43121889046108,
+    61.449603304405436
+   ],
+   "ttft_s": 0.15063881874084473,
+   "acceptance": null
+  },
+  {
+   "context": 64000,
+   "temp": 0.6,
+   "task": "code",
+   "prompt_tokens": 51223,
+   "decode_tok_s": 52.85962447743555,
+   "all_decode_tok_s": [
+    52.888429867450526,
+    52.85962447743555,
+    52.81186195048468
+   ],
+   "ttft_s": 0.1716156005859375,
+   "acceptance": null
+  },
+  {
+   "context": 64000,
+   "temp": 0.6,
+   "task": "code_ts",
+   "prompt_tokens": 51225,
+   "decode_tok_s": 52.91404378484184,
+   "all_decode_tok_s": [
+    52.91404378484184,
+    52.924196731383084,
+    52.86233604167566
+   ],
+   "ttft_s": 0.1703345775604248,
+   "acceptance": null
+  },
+  {
+   "context": 64000,
+   "temp": 0.6,
+   "task": "edit",
+   "prompt_tokens": 61630,
+   "decode_tok_s": 49.323790766182924,
+   "all_decode_tok_s": [
+    49.302388804376655,
+    49.342143618339364,
+    49.323790766182924
+   ],
+   "ttft_s": 0.2225666046142578,
+   "acceptance": null
+  },
+  {
+   "context": 128000,
+   "temp": 0.6,
+   "task": "code",
+   "prompt_tokens": 102423,
+   "decode_tok_s": 38.976491579287476,
+   "all_decode_tok_s": [
+    38.976491579287476,
+    39.00397481458901,
+    38.971226996921935
+   ],
+   "ttft_s": 0.32461023330688477,
+   "acceptance": null
+  },
+  {
+   "context": 128000,
+   "temp": 0.6,
+   "task": "code_ts",
+   "prompt_tokens": 102425,
+   "decode_tok_s": 38.973055722875976,
+   "all_decode_tok_s": [
+    38.973055722875976,
+    38.942545726971176,
+    39.00286055332705
+   ],
+   "ttft_s": 0.3369758129119873,
+   "acceptance": null
+  },
+  {
+   "context": 128000,
+   "temp": 0.6,
+   "task": "edit",
+   "prompt_tokens": 123485,
+   "decode_tok_s": 35.164737963054236,
+   "all_decode_tok_s": [
+    35.111103826672654,
+    35.164737963054236,
+    35.19495356383518
+   ],
+   "ttft_s": 0.3251192569732666,
+   "acceptance": null
+  }
+ ]
+}

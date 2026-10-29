@@ -40,4 +40,7 @@ check "empty keep stops every model"       ""            "vllm_glmfp4 vllm_fp4lo
 check "fp4local up over deepseek (stop.sh)" vllm_fp4local "dsv41-1017-exl3-tf" "dsv41-1017-exl3-tf" ok "" ""
 check "deepseek up keeps its own pair"     dsv41-1017-exl3-tf "vllm_fp4local dsv41-1017-exl3-tf" "dsv41-1017-exl3-tf" ok "dsv41-1017-exl3-tf" "dsv41-1017-exl3-tf"
 check "ignores a quality-harness container" vllm_mimo    "vllm_fp4local" "vllm_fp4local harness_x" ok "" "harness_x"
+check "flint keeps both variants (one per node)" "vllm_flint_nvfp4 vllm_flint_bf16" "vllm_flint_nvfp4 vllm_fp4local" "vllm_flint_bf16 vllm_fp4local" ok "vllm_flint_nvfp4" "vllm_flint_bf16"
+check "fp4local up over both flints"       vllm_fp4local "vllm_flint_nvfp4" "vllm_flint_bf16" ok "" ""
+check "flint up over deepseek"             "vllm_flint_nvfp4 vllm_flint_bf16" "dsv41-1017-exl3-tf" "dsv41-1017-exl3-tf harness_y" ok "" "harness_y"
 exit $fail

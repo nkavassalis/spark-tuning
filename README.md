@@ -14,7 +14,8 @@ The cluster runs one model at a time. Each model has its own write-up:
 | `autotrust/GLM5.3-Flash-E192-DGX-Spark` (+ E224), NVFP4 MTP K=2 | stock vLLM 0.31.0 + `glm/` (after autotrust's [E224 two-Spark runbook](https://huggingface.co/autotrust/GLM5.3-Flash-E224-DGX-Spark/blob/main/DEPLOY-2X-DGX-SPARK.md)) | [GLM.md](GLM.md) | benchmarked 2026-10-13, **removed from the nodes**; `glm/setup_nodes.sh && glm/up.sh` to bring it back |
 | `nvidia/Qwen3.8-Flash-Next-FP4-Local` (QAD NVFP4 + MXFP8), MTP K=2–4 | community b12x vLLM (`eugr/spark-vllm-b12x`) + `fp4local/` | [FP4LOCAL.md](FP4LOCAL.md) | **serving** since 2026-10-16 (TP=2, K=2): as smart as config C, a bit slower, bigger KV, free warm cache hits; `fp4local/down.sh --qwen` to go back |
 | `nvidia/GLM-5.3-Flash-FP4-Local` (QAD NVFP4 + MXFP8, all 288 experts), MTP K=3 | community b12x vLLM + `glmfp4/` (nvidia's 2-Spark recipe, text only) | [GLMFP4.md](GLMFP4.md) | benchmarked 2026-10-17, **removed from the nodes**: best LiveCodeBench here (55%), ties elsewhere, ~35–40% slower decode than Qwen FP4-Local; `glmfp4/setup_nodes.sh && DEFAULT_EFFORT=high SPEC_TOKENS=3 glmfp4/up.sh` to bring it back |
-| `Mia-AiLab/DeepSeek-V4.1-Flash-1017-EXL3-EAQ-v1-2.9-bpw`, DSpark drafts | TensorFold native engine + [MiaAI-Lab/DeepSeek-v4.1-Flash-1017-2x-DGX-Sparks](https://github.com/MiaAI-Lab/DeepSeek-v4.1-Flash-1017-2x-DGX-Sparks) + `deepseek/` (no NFS) | [DEEPSEEK.md](DEEPSEEK.md) | reviewed and set up 2026-10-28, **not served or measured yet** |
+| `Mia-AiLab/DeepSeek-V4.1-Flash-1017-EXL3-EAQ-v1-2.9-bpw`, DSpark drafts | TensorFold native engine + [MiaAI-Lab/DeepSeek-v4.1-Flash-1017-2x-DGX-Sparks](https://github.com/MiaAI-Lab/DeepSeek-v4.1-Flash-1017-2x-DGX-Sparks) + `deepseek/` (no NFS) | [DEEPSEEK.md](DEEPSEEK.md) | measured 2026-10-28/29, **weights removed from the nodes** 2026-10-29: best LiveCodeBench here (76–79%), 4 streams max; `deepseek/setup_nodes.sh && deepseek/up.sh` to bring it back |
+| `RecursiveSI/flint-nvfp4-gguf` and `RecursiveSI/flint` (BF16), TP=1, one per node | vLLM nightly + `flint/` | [FLINT.md](FLINT.md) | measured 2026-10-29, **removed from the nodes**: NVFP4 beats Qwen FP4-Local on hard problems and prefills 2.4× faster; ties the Mac int4; `flint/setup_nodes.sh && flint/up.sh both` to bring it back |
 
 Head-to-head speed and quality on this cluster: **[QWEN_VS_MIMO.md](QWEN_VS_MIMO.md)**. Short version: for
 single-user coding Qwen config C is 1.3–2.7× faster and at least as accurate. MiMo is ahead only on multimodal input
@@ -53,8 +54,10 @@ and the 300K window.
 | `glm/` | GLM setup / switch scripts (`setup_nodes.sh`, `up.sh`, `down.sh`) and the in-container vLLM patch (`patch_vllm.py`) |
 | `fp4local/` | FP4-Local setup / switch scripts (`setup_nodes.sh`, `up.sh [LIVE=1]`, `down.sh [--qwen]`) |
 | `glmfp4/` | GLM FP4-Local setup / switch scripts (`setup_nodes.sh`, `up.sh`, `down.sh [--fp4local\|--qwen]`) |
-| `DEEPSEEK.md` | DeepSeek-V4.1-Flash-1017 EXL3 2.9 bpw on TensorFold: review, which pack, no-NFS setup, test plan |
+| `DEEPSEEK.md` | DeepSeek-V4.1-Flash-1017 EXL3 2.9 bpw on TensorFold: review, which pack, no-NFS setup, speed, quality |
 | `deepseek/` | DeepSeek setup / switch scripts around MiaAI-Lab's recipe (`setup_nodes.sh`, `up.sh`, `down.sh [--fp4local\|--qwen]`) |
+| `FLINT.md` | Recursive Flint NVFP4 / BF16 on one Spark each: speed, quality vs the Mac int4, Qwen, DeepSeek |
+| `flint/` | Flint setup / switch scripts (`setup_nodes.sh`, `up.sh [nvfp4\|bf16\|both]`, `down.sh [--fp4local\|--qwen]`) and the quality suite (`run_suite.sh`) |
 | `results/` | raw benchmark and eval outputs |
 
 ## Parallel layout
@@ -102,7 +105,8 @@ mimo/down.sh --fp4local  # stop MiMo, relaunch the live FP4-Local
 GLM_VARIANT=E224 glm/setup_nodes.sh && GLM_VARIANT=E224 glm/up.sh   # GLM-5.3-Flash (not installed, 2026-10-25); glm/down.sh --fp4local to go back
 LIVE=1 SPEC_TOKENS=2 fp4local/up.sh   # the live model: nvidia FP4-Local as qwen3.8-flash-next, no key; plain fp4local/up.sh = benchmark mode (K=4, API key); fp4local/down.sh --qwen
 glmfp4/setup_nodes.sh && DEFAULT_EFFORT=high SPEC_TOKENS=3 glmfp4/up.sh   # nvidia GLM FP4-Local (not on the head, 2026-10-25; worker keeps a copy); glmfp4/down.sh --fp4local
-deepseek/setup_nodes.sh && deepseek/up.sh   # DeepSeek-V4.1-Flash-1017 EXL3 (set up 2026-10-28, not served yet); deepseek/down.sh --fp4local
+deepseek/setup_nodes.sh && deepseek/up.sh   # DeepSeek-V4.1-Flash-1017 EXL3 (weights removed 2026-10-29, ~400 GB to rebuild); deepseek/down.sh --fp4local
+flint/setup_nodes.sh && flint/up.sh both    # Recursive Flint NVFP4 (head) + BF16 (worker), TP=1 (removed 2026-10-29); flint/down.sh --fp4local
 
 MiMo is **not on the head** (2026-10-25: removed 2026-10-07, reinstalled 2026-10-23 and 2026-10-24, removed from the head 2026-10-25; the worker
 keeps its weights and image). `setup_nodes.sh` re-downloads it on the head and rsyncs whatever the worker lacks.

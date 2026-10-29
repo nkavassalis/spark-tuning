@@ -1,0 +1,51 @@
+{
+ "api": "<head>",
+ "model": "flint-nvfp4",
+ "args": {
+  "api": "http://<head>:8000",
+  "tokens": 96000,
+  "load": 3,
+  "idle": 600,
+  "steps": "cold,warm,edit_late",
+  "json": "results/flint/flint-nvfp4-prefix-probe-96000-2026-10-29.json",
+  "seed": 7
+ },
+ "rows": [
+  {
+   "step": "cold (first sight)",
+   "prompt_tokens": 85413,
+   "recomputed": 64213,
+   "cached": 21200,
+   "cached_pct": 24.8,
+   "e2e_s": 16.63,
+   "kv_after": 0.0,
+   "overlap_requests": 0,
+   "queries_delta": 85413,
+   "clean": true
+  },
+  {
+   "step": "warm (immediately again)",
+   "prompt_tokens": 85413,
+   "recomputed": 5,
+   "cached": 85408,
+   "cached_pct": 100.0,
+   "e2e_s": 0.34,
+   "kv_after": 0.0,
+   "overlap_requests": 0,
+   "queries_delta": 85413,
+   "clean": true
+  },
+  {
+   "step": "1 token changed at END",
+   "prompt_tokens": 85415,
+   "recomputed": 7,
+   "cached": 85408,
+   "cached_pct": 100.0,
+   "e2e_s": 0.34,
+   "kv_after": 0.0,
+   "overlap_requests": 0,
+   "queries_delta": 85415,
+   "clean": true
+  }
+ ]
+}

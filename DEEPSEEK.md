@@ -1,9 +1,16 @@
 # DeepSeek-V4.1-Flash-1017 (EXL3 2.9 bpw, TensorFold) on the 2× Spark cluster
 
-**Status 2026-10-28:** set up on both nodes (downloaded and prepared on the worker, rank 0's files copied to the head,
-the image built and loaded on both, the recipe's `DRY_RUN=1 ./start.sh` checked). **Not served, nothing measured yet**:
-starting it stops the live Qwen FP4-Local, and that waits for the user's go-ahead. Current cluster state:
+**Status 2026-10-29:** served and measured 2026-10-28/29 (speed, quality, time to solve, the post-cutoff AtCoder set; below),
+then stopped and its weights (`~/dsv41-hf`, 295 GiB on the head, 587 GiB on the worker) **removed from both nodes** on
+2026-10-29. The engine image `tensorfold-dsv41:exl3-tp2-928adbd0e57d` and the recipe checkout stay on both;
+`deepseek/setup_nodes.sh` re-downloads (~400 GB) and rebuilds the weight files. Current cluster state:
 [AGENTS.md Purpose](AGENTS.md#purpose).
+
+**Verdict:** the strongest hard-problem coder measured on the cluster (LiveCodeBench 76-79% vs ≤59%; post-cutoff AtCoder 70.1%
+vs Qwen's 53.7%) and the fastest single-stream decode (~92 / 69 tok/s thinking off / on), with time to solve on hard problems
+half Qwen's. Against that: 4 streams at once (aggregate stops at ~130 tok/s, Qwen keeps scaling), a 1M-position shared window,
+a ~1 s tail recomputed on every warm prefix hit, worse long context than GLM, average thinking-off quality, and a 900 GB
+footprint across the two nodes.
 
 ## What it is
 
@@ -102,15 +109,131 @@ deepseek/down.sh --fp4local        # recipe ./stop.sh, then the live Qwen FP4-Lo
 Knobs pass through to the recipe: `CONTEXT`, `PARALLEL`, `THINKING`, `REASONING_EFFORT`, `THINKING_BUDGET`, `MAX_TOKENS`,
 `TEMPERATURE`/`TOP_P`/`TOP_K`, `DRAFTS`, `POOL`, `KV_SHARD`, `SPILL_GIB` (`deepseek/up.sh`).
 
-## Test plan (after the go-ahead)
+## Speed (2026-10-28, recipe defaults: 4 streams, 1,048,576-token window, drafts on; API key locked, nothing else on the server)
 
-All runs locked with the API key, and nothing else on the server:
-1. load, memory after load on both nodes (recipe warns within 3 GiB of memguard's floor);
-2. `scripts/bench_decode.py` C1-C6 at 1K-128K, thinking off and on;
-3. `scripts/prefix_probe.py`;
-4. `quality/run_quality.sh` and `quality/run_deep.sh` at the 32K thinking budget (COMPARISON.md), at the server's
-   temperature 1.0 and at 0.6;
-5. time to solve (`quality/run_tts.sh`);
-6. optionally the post-cutoff AtCoder set (`LCB_DATA=atc147.jsonl`, FP4LOCAL.md).
+Loaded in 36 s (rank cache read whole in 20 s) after `start.sh`'s checks. Memory available after load: head 7.2-7.9 GiB,
+worker 8.9-9.7 GiB (memguard's floor is 2.5). The KV pool is the recipe's default: `CONTEXT` positions (1,048,576) shared by the
+4 streams, against FP4-Local's 4.54M tokens in live mode. `tensorfold:requests_running` + `requests_waiting` read 0 before and after
+every run. Unauthenticated requests (agents still pointed at :8000) got 401 throughout.
 
-Then `deepseek/down.sh --fp4local`.
+**Decode**, `scripts/bench_decode.py`: 500 tokens, `ignore_eos` (checked: 300 of 300 tokens decoded), T=0.6, median of 3, the same
+prompts as every other model. Files `results/deepseek/deepseek-bench_decode-{thinkoff,default}-2026-10-28.json`. "Thinking
+default" sends nothing, which is the template's `high` (effort 75). Acceptance is TensorFold's `mtp_accepted_total / mtp_drafted_total`
+(no draft-step count is exported, so no mean acceptance length).
+
+| ctx | task | FP4-Local live, off / default (`xhigh`) | **DeepSeek, off / default (`high`)** | DeepSeek accepted share, off / default |
+|---|---|---|---|---|
+| 1K | code | 65.0 / 50.9 | **86.4 / 61.0** | 0.74 / 0.52 |
+| 1K | code_ts | 65.4 / 47.3 | **90.0 / 69.1** | 0.75 / 0.61 |
+| 1K | edit | 67.7 / 58.4 | **98.8 / 81.5** | 0.79 / 0.70 |
+| 32K | code / code_ts / edit | — | 87.2 / 78.3 / 96.0 ; 72.1 / 69.4 / 74.9 | |
+| 64K | code / code_ts / edit | — | 80.1 / 82.0 / 94.6 ; 63.5 / 63.0 / 70.2 | |
+| 128K | code | 62.4 / 49.3 | **88.1 / 60.9** | 0.76 / 0.53 |
+| 128K | code_ts | 63.8 / 44.1 | **89.5 / 70.5** | 0.76 / 0.64 |
+| 128K | edit | 61.4 / 52.5 | **96.9 / 69.1** | 0.81 / 0.60 |
+
+Means of the six 1K/128K cells: **91.6 / 68.7 tok/s** against FP4-Local's 64.3 / 50.4, about +40%. Decode does not slow down with
+context (MiMo fell 10.6 to 7.1 steps/s from 1K to 128K). DeepSeek's tokenizer is also denser: these prompts are 0.80× as many
+tokens (825 vs 1,033 at "1K", 102K vs 128K at "128K"), so per character of output the gap is larger still. The FP4-Local column
+is `results/fp4local/ple-device-bench_decode-*-2026-10-21.json` (live mode, K=2).
+
+**Concurrency and cold prefill**, the MiMo recipe's `bench/mimobench.py` (T=0, thinking off, keyed copy, run on the head):
+`results/deepseek/bench-deepseek-tp2.{md,json}`.
+
+| C | FP4-Local live, aggregate / per-stream | **DeepSeek aggregate / per-stream** | DeepSeek mean TTFT (s) |
+|---|---|---|---|
+| 1 | 57.6 / 63.9 | **71.5 / 84.0** | 0.26 |
+| 2 | 87.9 / 51.2 | **101.6 / 62.0** | 0.39 |
+| 3 | 115.6 / 45.4 | **123.2 / 50.3** | 0.51 |
+| 4 | **141.2** / 41.4 | 133.1 / 41.0 | 0.66 |
+| 5 | **158.0** / 36.8 | 117.9 / 47.5 | 1.37 |
+| 6 | **187.5** / 36.6 | 121.6 / 43.7 | 1.95 |
+
+DeepSeek leads up to 3 streams. It serves 4 at once (`PARALLEL`), so at 5 and 6 the extra requests queue (TTFT 1.4-2 s) and the
+aggregate stops rising; FP4-Local keeps scaling to 6.
+
+| cold prefill target | FP4-Local tokens / TTFT / tok/s | DeepSeek tokens / TTFT / tok/s |
+|---|---|---|
+| 32K | 31,551 / 11.0 s / 2,859 | 18,304 / **8.9 s** / 2,060 |
+| 64K | 63,221 / 22.5 s / 2,813 | 36,536 / **17.7 s** / 2,060 |
+
+Per token DeepSeek prefills ~28% slower, but this (prose) prompt is only 0.58× as many DeepSeek tokens, so the same text is
+ready ~20% sooner. A cold 88,641-token code prompt took 43.1 s (below).
+
+**Prefix cache**, `scripts/prefix_probe.py` (TensorFold has no per-source counters; it reads the reply's `cached_tokens`):
+`results/deepseek/deepseek-prefix-probe-{24000,96000}-2026-10-28.json`.
+
+| step | 22,041-token prompt | 88,641-token prompt |
+|---|---|---|
+| cold | 22,041 computed, 12.3 s | 88,641 computed, 43.1 s |
+| warm, immediately again | 1,561 recomputed (92.9% cached), 1.09 s | 577 recomputed (99.3%), 0.75 s |
+| 1 token changed at the start | 22,042 recomputed, 10.1 s | — |
+| 1 token changed at the end | 1,563 recomputed, 1.09 s | 579, 0.77 s |
+| after 3 competing 22K prompts | 1,561 recomputed, 1.09 s | — |
+| after 600 s idle | 1,561 recomputed, 1.09 s | — |
+
+The cache works in 2,048-token blocks ("prompts in 2048-row chunks" in the engine's load line): a warm hit recomputes the
+tail past the last full block (`prompt mod 2048`, under 2,048 tokens, ~1 s), unlike FP4-Local's zero. It survived competing
+prompts and 10 minutes idle. One run each.
+
+## Quality (2026-10-28/29, the harness every other model ran; API key locked)
+
+`quality/run_quality.sh` (thinking off, greedy) and `quality/run_deep.sh` (thinking on at the template default `high`, 32K budget,
+concurrency 8), the same problems, seeds and sandbox as COMPARISON.md. No NLL / bits-per-byte: TensorFold ignores
+`prompt_logprobs`. Result folders `results/quality/{DS-off,DS-deep32-t10,DS-deep32-t06,TTS32-ds-t06,DS-atc-t06}`. McNemar exact
+p on the same problems; one run per cell.
+
+**Thinking off (greedy):**
+
+| Test | **DeepSeek** | Qwen FP4-Local | GLM FP4-Local (`low`) | GLM E224 (`low`) | MiMo |
+|---|---|---|---|---|---|
+| HumanEval+ | 91.5 | 94.5 (p=0.23) | 91.5 (p=1.0) | 92.1 (p=1.0) | 88.4 (p=0.30) |
+| MBPP+ | 78.0 | 79.9 (p=0.21) | **81.8 (p=0.007)** | **82.0 (p=0.011)** | 74.3 (DeepSeek better, p=0.034) |
+| GSM8K | 97.0 | 96.4 (p=0.24) | 96.5 (p=0.35) | — | 96.4 (p=0.26) |
+
+p is DeepSeek against that model on the same problems (folders `F4-fp4local`, `GF4-glmfp4`, `G224-low`, `M-mimo-tp2`). Thinking
+off, DeepSeek is an average Spark model: it ties Qwen and loses MBPP+ to both GLMs (which always think; `low` is their lightest setting).
+
+**Thinking on, 32K budget:**
+
+| Test | **DeepSeek T=1.0** | **DeepSeek T=0.6** | best other Spark model at 32K | Flint int4 (Mac, T=0.6) |
+|---|---|---|---|---|
+| LiveCodeBench (80, 2025-01..04) | **78.8** (11 at the cap) | **76.2** (12) | 58.8 (MiMo 1.0, GLM FP4-Local 1.0) | 71.2 |
+| HumanEval+ | 92.1 (base 97.6) | 94.5 (98.2) | 95.7 (Qwen `medium`, 16K) | 91.5 |
+| long context (144, up to 128K) | 94.4 | — | 100.0 (GLM E224) | — |
+
+- **LiveCodeBench is the outlier**: DeepSeek beats every Spark model at p ≤ 0.001 at both temperatures, and nearly as a
+  superset (T=1.0: 0 problems lost against Qwen `medium` / `xhigh` and MiMo, 1 against GLM FP4-Local; 22-24 gained). 1.0 vs 0.6:
+  4 / 6, p=0.75. Against Flint int4 on the Mac: 7 / 1 (T=1.0, p=0.070), 8 / 4 (T=0.6, p=0.39).
+  The 80 problems date from 2025-01-11 to 2025-04-06, long before this checkpoint, so a gap this size could be contamination:
+  that is what the AtCoder check below is for.
+- HumanEval+ ties everything (p ≥ 0.07). Long context: 136/144, below GLM FP4-Local (p=0.039) and E224 (p=0.008), tie with
+  Qwen FP4-Local (97.2, p=0.29) and MiMo (90.3, p=0.15).
+
+**Time to solve at 32K** (`quality/run_tts.sh`, T=0.6, concurrency 1, nothing else on the server), against COMPARISON.md's
+32K table:
+
+| Model | HE+ solved / 41 | s per problem | LCB solved / 10 | s per problem | at the cap / 10 |
+|---|---|---|---|---|---|
+| Qwen FP4-Local `medium` | 36 | 14.3 | 1 | 564 | 9 |
+| MiMo, thinking on | 37 | 22.1 | 1 | 717 | 8 |
+| GLM FP4-Local `high` | 37 | **9.0** | 3 | 628 | 6 |
+| **DeepSeek `high`** | **39** | 18.7 (median 8.7) | **6** | **287** | 3 |
+
+On hard problems DeepSeek both solves more and finishes sooner: it reasons less (22.8K mean tokens against Qwen's 30.5K) and decodes
+~40% faster. HE+ is slower on average than GLM because of a few long answers (max 118 s); the median is 8.7 s.
+
+**Problems newer than the checkpoint: post-cutoff AtCoder** (2026-10-29, `LCB_DATA=atc147.jsonl`, T=0.6, 32K, concurrency 8;
+the set and its sample-test scoring are mac-tuning's, FP4LOCAL.md "Problems newer than the training data"). The lcb80 runs
+were rescored on sample tests only so both sides are scored the same way (`results/quality/samples-only/DS-deep32-*`):
+
+| Model | lcb80, samples only | **atc147** | drop | atc147 paired vs DeepSeek |
+|---|---|---|---|---|
+| Qwen FP4-Local `medium` / `xhigh` | 53.8 / 53.8 | 53.7 / 53.1 | ~0 | 25 / 1 and 27 / 2, p<0.001 |
+| Flint int4 (Mac, T=0.6) | 76.2 | 68.0 | −8 | 9 / 6, p=0.61 |
+| **DeepSeek `high`** | 83.8 (both temperatures) | **70.1** (103/147; 42 at the cap) | **−14** | |
+
+- **The old 80 overstate DeepSeek the most** (−14 points against Flint's −8 and Qwen's ~0), so part of its lcb80 lead is
+  contamination or a better fit to older problems; which one can't be told from this.
+- **What is left is still the best result on new problems**: +16 points over Qwen FP4-Local, nearly as a superset, and a tie with
+  Flint int4 on the Mac.

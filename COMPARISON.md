@@ -3,7 +3,7 @@
 All on this cluster: 2× DGX Spark, TP=2, same harness, data and sandbox. This page only collects numbers; each one comes from the
 model's own doc, which has the method, the result file and the caveats: [FP8DENSE.md](FP8DENSE.md) / [QWEN.md](QWEN.md) (Qwen
 A/B/C), [FP4LOCAL.md](FP4LOCAL.md) (Qwen FP4-Local), [MIMO.md](MIMO.md) / [QWEN_VS_MIMO.md](QWEN_VS_MIMO.md), [GLM.md](GLM.md)
-(E192/E224), [GLMFP4.md](GLMFP4.md) (GLM FP4-Local). Collected 2026-10-18; temperature and timing rows added 2026-10-23 (MiMo) and 2026-10-24 (GLM FP4-Local). **"—" = not measured.** One run per cell unless noted;
+(E192/E224), [GLMFP4.md](GLMFP4.md) (GLM FP4-Local), [DEEPSEEK.md](DEEPSEEK.md), [FLINT.md](FLINT.md). Collected 2026-10-18; temperature and timing rows added 2026-10-23 (MiMo) and 2026-10-24 (GLM FP4-Local). **"—" = not measured.** One run per cell unless noted;
 the noise floor (Qwen A run twice) is 2–3 problems each way on HumanEval+/MBPP+.
 
 > [!NOTE]
@@ -152,6 +152,33 @@ problem and buys at most one more solve on 10: the hard problems that hit 16K mo
 is a redraw: its 16K run had one answer reasoning into the cap. The Qwen run shared the live server with pi: 5 of 620 load samples
 showed a second request, so its times are an upper bound.
 
+## DeepSeek and Flint (2026-10-28/29)
+
+Two more models ran the same harness after this page was collected. Each was then removed from both nodes (2026-10-29).
+Details, result folders and every paired test: [DEEPSEEK.md](DEEPSEEK.md) and [FLINT.md](FLINT.md).
+- **DeepSeek-V4.1-Flash-1017** (EXL3 2.9 bpw, TensorFold, TP=2).
+- **Recursive Flint**: NVFP4 GGUF on one Spark, BF16 on the other, vLLM nightly, TP=1. The Mac int4 build is in
+  [mac-tuning](https://github.com/nkavassalis/mac-tuning).
+
+All at a 32K budget, T=0.6 unless noted, with Qwen FP4-Local `medium` for reference:
+
+| Model | LCB (80) | post-cutoff AtCoder (147) | HE+ | MBPP+ | long context | decode 1K / 128K, thinking on | C6 aggregate | cold prefill 32K, tok/s |
+|---|---|---|---|---|---|---|---|---|
+| Qwen FP4-Local `medium` | 51.2 | 53.7 | 95.7 (16K) | 79.9 (off) | 97.2 | 51 / 49 (`xhigh`) | 187 | 2,728 |
+| DeepSeek `high` | **76.2** (78.8 at T=1.0) | **70.1** | 94.5 | 78.0 (off) | 94.4 | 61–82 / 61–71 | 122 (4 streams max) | 2,060 |
+| Flint NVFP4 (one Spark) | 63.8 | 68.7 | 92.1 | 80.7 | 92.4 | 82 / 39 | **340** | **6,866** |
+| Flint BF16 (one Spark) | 68.8 | 80.0 on the first 55 only | 93.3 | — | — | 34 / 23 | 135 | 3,940 |
+| Flint int4 (Mac mini, `rec`) | 71.2 | 68.0 | 91.5 | 79.1 | — | 114–120 / 26–31 | 1 stream | ~600 |
+
+- **On hard problems DeepSeek and Flint both beat Qwen**, and tie each other on the post-cutoff set (DeepSeek vs Flint NVFP4
+  6 / 4, p=0.75). Every Qwen gap is p ≤ 0.013.
+- **Part of the old-LCB lead is contamination.** On sample-test scoring, DeepSeek drops 14 points from lcb80 to the newer
+  problems, Flint int4 8, Flint NVFP4 4, and Qwen ~0.
+- **The Flint builds tie each other** on every test (p ≥ 0.11). BF16 doesn't pay for its 2.4× slower decode.
+- **Neither stayed on the cluster** (user's call, 2026-10-29).
+  - DeepSeek: 900 GB across the nodes, 4 streams, and worse long context than GLM.
+  - Flint: the user plans to serve it from the Mac mini instead.
+
 ## Speed
 
 `scripts/bench_decode.py`: 500 tokens, T=0.6, median of 3, mean of 6 cells (code / code_ts / edit at 1K and 128K). Recipe bench:
@@ -182,6 +209,8 @@ nothing else on the server.
   `max` for interactive work: 99 s per easy problem.
 - **Give hard problems a 32K budget, not 16K** (2026-10-25, above): MiMo gains significantly, Qwen a little, GLM nothing; easy
   problems never come near either cap, so the larger cap only costs time on the hard ones (about 2× per problem).
+- **Hard, self-contained problems are where DeepSeek and Flint help** (above). Neither is on the cluster (2026-10-29). The
+  planned route is Flint on a Mac mini as an escalation target for pi.
 - Keep one thinking level per session: changing it re-prefills the whole history ([PI.md](PI.md)).
 - MiMo lost to Qwen on speed everywhere and on MBPP+ significantly; it is not on the head (2026-10-25). If it comes back, 0.6 beats the
   server's 1.0 on MBPP+ (thinking off) and on time to solve, but the recipe found 0.6 makes tool-call storms more frequent (MIMO.md).

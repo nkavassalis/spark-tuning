@@ -44,6 +44,8 @@ def counters(api):
             out['done'] = out.get('done', 0) + float(line.rsplit(' ', 1)[1])
         elif line.startswith('vllm:prefix_cache_queries_total{'):
             out['queries'] = float(line.rsplit(' ', 1)[1])
+        elif line.startswith('tensorfold:prompt_tokens_total '):   # TensorFold (DEEPSEEK.md): prompt tokens seen
+            out['tf_prompt'] = float(line.rsplit(' ', 1)[1])
     return out
 
 
@@ -54,13 +56,18 @@ def post(api, prompt, max_tokens):
     t0 = time.time()
     r = json.loads(urllib.request.urlopen(urllib.request.Request(
         api.rstrip('/') + '/v1/chat/completions', body, {'Content-Type': 'application/json', **AUTH}), timeout=1800).read())
-    return time.time() - t0, r['usage']['prompt_tokens']
+    u = r['usage']
+    return time.time() - t0, u['prompt_tokens'], (u.get('prompt_tokens_details') or {}).get('cached_tokens')
 
 
 def run(api, label, prompt, max_tokens, quiet=False):
     a, b = counters(api), None
-    el, ptok = post(api, prompt, max_tokens)
+    el, ptok, ucached = post(api, prompt, max_tokens)
     b = counters(api)
+    if 'tf_prompt' in b:   # TensorFold has no per-source counters: the reply's cached_tokens, and the server's prompt
+        # token count as the overlap check (it grew by more than our prompt if another request came in meanwhile)
+        a, b = {'queries': a.get('tf_prompt', 0)}, {'queries': b['tf_prompt'], 'local_cache_hit': ucached or 0,
+                                                    'local_compute': ptok - (ucached or 0)}
     # The counters are server-global: if another request finished during the probe, the delta is not ours alone.
     others = int(b.get('done', 0) - a.get('done', 0)) - 1
     qdelta = b.get('queries', 0) - a.get('queries', 0)

@@ -1,0 +1,283 @@
+{
+ "per_task": {
+  "atc/abc465_a": true,
+  "atc/abc465_b": true,
+  "atc/abc465_c": true,
+  "atc/abc465_d": true,
+  "atc/abc465_e": true,
+  "atc/abc465_f": false,
+  "atc/abc465_g": false,
+  "atc/abc466_a": true,
+  "atc/abc466_b": true,
+  "atc/abc466_d": true,
+  "atc/abc466_e": true,
+  "atc/abc466_f": true,
+  "atc/abc466_g": false,
+  "atc/arc224_a": false,
+  "atc/arc224_b": true,
+  "atc/arc224_d": true,
+  "atc/arc224_e": false,
+  "atc/arc224_f": false,
+  "atc/abc467_a": true,
+  "atc/abc467_b": true,
+  "atc/abc467_c": true,
+  "atc/abc467_d": true,
+  "atc/abc467_e": true,
+  "atc/abc467_f": true,
+  "atc/abc467_g": true,
+  "atc/arc225_a": false,
+  "atc/arc225_b": true,
+  "atc/arc225_d": true,
+  "atc/arc225_e": false,
+  "atc/abc468_a": true,
+  "atc/abc468_b": true,
+  "atc/abc468_c": true,
+  "atc/abc468_d": true,
+  "atc/abc468_e": true,
+  "atc/abc468_f": true,
+  "atc/abc468_g": false,
+  "atc/abc469_a": true,
+  "atc/abc469_b": true,
+  "atc/abc469_c": true,
+  "atc/abc469_d": true,
+  "atc/abc469_f": true,
+  "atc/abc469_g": false,
+  "atc/abc470_a": true,
+  "atc/abc470_b": true,
+  "atc/abc470_c": false,
+  "atc/abc470_d": true,
+  "atc/abc470_f": true,
+  "atc/abc470_g": true,
+  "atc/arc226_a": true,
+  "atc/arc226_b": true,
+  "atc/abc471_a": true,
+  "atc/abc471_b": true,
+  "atc/abc471_c": true,
+  "atc/abc471_d": true,
+  "atc/abc471_e": true
+ },
+ "detail": {
+  "atc/abc465_a": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc465_b": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc465_c": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc465_d": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc465_e": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc465_f": {
+   "pass": false,
+   "why": "runtime error on test 0"
+  },
+  "atc/abc465_g": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/abc466_a": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc466_b": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc466_d": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc466_e": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc466_f": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc466_g": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/arc224_a": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/arc224_b": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/arc224_d": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/arc224_e": {
+   "pass": false,
+   "why": "runtime error on test 0"
+  },
+  "atc/arc224_f": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/abc467_a": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc467_b": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc467_c": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc467_d": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc467_e": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc467_f": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc467_g": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/arc225_a": {
+   "pass": false,
+   "why": "wrong answer on test 0"
+  },
+  "atc/arc225_b": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/arc225_d": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/arc225_e": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/abc468_a": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc468_b": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc468_c": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc468_d": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc468_e": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc468_f": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc468_g": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/abc469_a": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc469_b": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc469_c": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc469_d": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc469_f": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc469_g": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/abc470_a": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc470_b": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc470_c": {
+   "pass": false,
+   "why": "no code"
+  },
+  "atc/abc470_d": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc470_f": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc470_g": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/arc226_a": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/arc226_b": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc471_a": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc471_b": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc471_c": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc471_d": {
+   "pass": true,
+   "why": "pass"
+  },
+  "atc/abc471_e": {
+   "pass": true,
+   "why": "pass"
+  }
+ },
+ "accuracy": 0.8,
+ "n": 55
+}

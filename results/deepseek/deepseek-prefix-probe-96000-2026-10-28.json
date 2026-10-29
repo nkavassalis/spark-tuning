@@ -1,0 +1,51 @@
+{
+ "api": "<head>",
+ "model": "DeepSeek-V4.1-Flash-1017",
+ "args": {
+  "api": "http://<head>:8000",
+  "tokens": 96000,
+  "load": 3,
+  "idle": 600,
+  "steps": "cold,warm,edit_late",
+  "json": "results/deepseek/deepseek-prefix-probe-96000-2026-10-28.json",
+  "seed": 12
+ },
+ "rows": [
+  {
+   "step": "cold (first sight)",
+   "prompt_tokens": 88641,
+   "recomputed": 88641,
+   "cached": 0,
+   "cached_pct": 0.0,
+   "e2e_s": 43.06,
+   "kv_after": 0,
+   "overlap_requests": 0,
+   "queries_delta": 88641,
+   "clean": true
+  },
+  {
+   "step": "warm (immediately again)",
+   "prompt_tokens": 88641,
+   "recomputed": 577,
+   "cached": 88064,
+   "cached_pct": 99.3,
+   "e2e_s": 0.75,
+   "kv_after": 0,
+   "overlap_requests": 0,
+   "queries_delta": 88641,
+   "clean": true
+  },
+  {
+   "step": "1 token changed at END",
+   "prompt_tokens": 88643,
+   "recomputed": 579,
+   "cached": 88064,
+   "cached_pct": 99.3,
+   "e2e_s": 0.77,
+   "kv_after": 0,
+   "overlap_requests": 0,
+   "queries_delta": 88643,
+   "clean": true
+  }
+ ]
+}

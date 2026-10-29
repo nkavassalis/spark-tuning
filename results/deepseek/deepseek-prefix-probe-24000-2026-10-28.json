@@ -1,0 +1,87 @@
+{
+ "api": "<head>",
+ "model": "DeepSeek-V4.1-Flash-1017",
+ "args": {
+  "api": "http://<head>:8000",
+  "tokens": 24000,
+  "load": 3,
+  "idle": 600,
+  "steps": "cold,warm,edit_early,edit_late,load,idle",
+  "json": "results/deepseek/deepseek-prefix-probe-24000-2026-10-28.json",
+  "seed": 11
+ },
+ "rows": [
+  {
+   "step": "cold (first sight)",
+   "prompt_tokens": 22041,
+   "recomputed": 22041,
+   "cached": 0,
+   "cached_pct": 0.0,
+   "e2e_s": 12.25,
+   "kv_after": 0,
+   "overlap_requests": 0,
+   "queries_delta": 22041,
+   "clean": true
+  },
+  {
+   "step": "warm (immediately again)",
+   "prompt_tokens": 22041,
+   "recomputed": 1561,
+   "cached": 20480,
+   "cached_pct": 92.9,
+   "e2e_s": 1.09,
+   "kv_after": 0,
+   "overlap_requests": 0,
+   "queries_delta": 22041,
+   "clean": true
+  },
+  {
+   "step": "1 token changed at START",
+   "prompt_tokens": 22042,
+   "recomputed": 22042,
+   "cached": 0,
+   "cached_pct": 0.0,
+   "e2e_s": 10.06,
+   "kv_after": 0,
+   "overlap_requests": 0,
+   "queries_delta": 22042,
+   "clean": true
+  },
+  {
+   "step": "1 token changed at END",
+   "prompt_tokens": 22043,
+   "recomputed": 1563,
+   "cached": 20480,
+   "cached_pct": 92.9,
+   "e2e_s": 1.09,
+   "kv_after": 0,
+   "overlap_requests": 0,
+   "queries_delta": 22043,
+   "clean": true
+  },
+  {
+   "step": "after 3 competing prompts",
+   "prompt_tokens": 22041,
+   "recomputed": 1561,
+   "cached": 20480,
+   "cached_pct": 92.9,
+   "e2e_s": 1.09,
+   "kv_after": 0,
+   "overlap_requests": 0,
+   "queries_delta": 22041,
+   "clean": true
+  },
+  {
+   "step": "after 600 s idle",
+   "prompt_tokens": 22041,
+   "recomputed": 1561,
+   "cached": 20480,
+   "cached_pct": 92.9,
+   "e2e_s": 1.09,
+   "kv_after": 0,
+   "overlap_requests": 0,
+   "queries_delta": 22041,
+   "clean": true
+  }
+ ]
+}

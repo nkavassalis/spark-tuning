@@ -53,7 +53,8 @@ CTX_KIND = {"edit": "src"}
 METRICS = ("vllm:spec_decode_num_drafts_total",
            "vllm:spec_decode_num_draft_tokens_total",
            "vllm:spec_decode_num_accepted_tokens_total",
-           "vllm:spec_decode_num_accepted_tokens_per_pos_total")
+           "vllm:spec_decode_num_accepted_tokens_per_pos_total",
+           "tensorfold:mtp_drafted_total", "tensorfold:mtp_accepted_total")   # TensorFold (DEEPSEEK.md)
 LINE = re.compile(r"^([a-z_:]+)(?:\{([^}]*)\})?\s+([0-9.eE+-]+)$")
 
 
@@ -76,6 +77,9 @@ def scrape(base):
 
 def accept_delta(a, b):
     d = {k: b.get(k, 0) - a.get(k, 0) for k in b}
+    if d.get("tensorfold:mtp_drafted_total", 0) > 0:   # no draft-step count: the accepted share of drafted tokens only
+        return {"per_pos": [], "mean_accept_len": None,
+                "draft_accept_rate": d.get("tensorfold:mtp_accepted_total", 0) / d["tensorfold:mtp_drafted_total"]}
     drafts = d.get("vllm:spec_decode_num_drafts_total", 0)
     if drafts <= 0:
         return None
@@ -117,8 +121,9 @@ def run(base, model, ctx, task, n, temp, thinking=None, chat_kwargs=None):
         if o.get("usage"):
             usage = o["usage"]
         for ch in o.get("choices", []):
-            if ch.get("delta") is None:
-                continue
+            dl = ch.get("delta")
+            if dl is None or not any(dl.get(k) for k in ("content", "reasoning_content", "reasoning")):
+                continue   # TensorFold sends an empty first delta before prefill; time from the first text
             if ttft is None:
                 ttft = time.time() - t0
             t_last = time.time()
@@ -165,7 +170,8 @@ def main():
                 dec = statistics.median(decs)
                 acc = accs[decs.index(sorted(decs)[len(decs) // 2])]
                 pp = " / ".join(f"{p:.2f}" for p in acc["per_pos"]) if acc else "n/a"
-                al = f"{acc['mean_accept_len']:.2f}" if acc else "n/a"
+                al = (f"{acc['mean_accept_len']:.2f}" if acc['mean_accept_len'] is not None
+                      else f"r{acc['draft_accept_rate']:.2f}") if acc else "n/a"
                 print(f"{c:>8,} {t:>4.1f} {task:<8} {ptok:>7,} {statistics.median(ttfts):>7.2f} {dec:>6.1f} {al:>7}  {pp}")
                 sys.stdout.flush()
                 rows.append({"context": c, "temp": t, "task": task, "prompt_tokens": ptok,
